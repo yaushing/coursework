@@ -29,7 +29,7 @@ def remove_non_message_text(export_text_lines):
 #################
 ### VARIABLES ###
 #################
-CHAT_CORPUS = "chatbot/chat.txt"
+CHAT_CORPUS = "chat.txt"
 chatbot = ChatBot("Chatpot")
 trainer = ListTrainer(chatbot)
 cleaned_corpus = remove_non_message_text(remove_chat_metadata(CHAT_CORPUS))

@@ -8,4 +8,7 @@ External libraries used:
 6. Pytz
 7. Regex
 8. Sqlalchemy
+9. Numpy
+10. Pgzero
+11. Pygame
 Run on python 3.9.12
