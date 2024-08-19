@@ -99,7 +99,7 @@ def create_room(width, height, left=False, right=False, up=False, down=False):
     if width == 0 or height == 0: return [[0 for _ in range(ROOM_SIZE)] for _ in range(ROOM_SIZE)]
     lr_borders = (ROOM_SIZE - width) // 2
     ud_borders = (ROOM_SIZE - height) // 2
-    room = [[2 for _ in range(width)]] + [[2] + [1 for _ in range(width - 2)] + [2] for _ in range(height-2)] + [[3 for _ in range(width)]]
+    room = [[2 for _ in range(width)]] + [[2] + [1 for _ in range(width - 2)] + [2] for _ in range(height-2)] + [[2] + [3 for _ in range(width - 2)] + [2]]
     if left:
         sections = height // 2
         room[sections - 1][0] = 1
@@ -164,12 +164,22 @@ def generate_rooms(rooms):
         if (i % ROOM_MAP_WIDTH) == (ROOM_MAP_WIDTH - 1) or i == len(rooms) - 1:
             room_data += ROW_DATA
     # Validations:
+    for y in range(len(room_data)):
+        for x in range(len(room_data[y])):
+            if room_data[y][x] == 2 and room_data[y + 1][x] == 0 and room_data[y - 1][x] == 1:
+                room_data[y][x] = 3
+            if room_data[y][x] == 3 and room_data[y + 1][x] != 0:
+                room_data[y][x] = 2
     final = []
+    trans_wall_count = 0
     for row in room_data:
         if len(row) > 0: final.append(row)
     assert len(final) == ROOM_MAP_HEIGHT * ROOM_SIZE, f"Expected height to be {ROOM_MAP_HEIGHT * ROOM_SIZE}, got {len(room_data)}" 
     for i in range(len(final)):
         assert len(final[i]) == ROOM_MAP_WIDTH * ROOM_SIZE, f"Expected width of row {i} to be {ROOM_MAP_WIDTH * ROOM_SIZE}, got {len(final[i])}" 
+        trans_wall_count += final[i].count(3)
+    print(trans_wall_count)
+    assert trans_wall_count == 101, f"Expected 101 transparent walls, got {trans_wall_count}."
     return final
 
 def adjust_wall_transparency():
@@ -414,7 +424,7 @@ def robot_interactions():
     global robot_speaking
     if keyboard.t:
         clock.unschedule(robot_interactions)
-        display_message(f"This is {ROOMS[current_room][6]} {ROOMS[current_room][7]} ")
+        display_message(f"This is {ROOMS[current_room][6]} {ROOMS[current_room][7]}")
         clock.schedule_unique(end_message, 5.0)
 
 
