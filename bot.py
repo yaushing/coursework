@@ -42,12 +42,21 @@ trainer.train(cleaned_corpus)
 ##############################
 ### CHATBOT INITIALIZATION ###
 ##############################
-exit_conditions = (":q", "quit", "exit")
-print(f"🪴 Hi!!! Type :q, quit or exit to quit!")
-while True:
-    query = input("> ")
-    if query in exit_conditions:
-        break
-    else:
-        ans = chatbot.get_response(query)
-        print(f"🪴 {ans}")
+
+if __name__ == '__main__':
+    exit_conditions = (":q", "quit", "exit")
+    print(f"🪴 Hi!!! Type :q, quit or exit to quit!")
+    while True:
+        query = input("> ")
+        if query in exit_conditions:
+            break
+        else:
+            ans = chatbot.get_response(query)
+            print(f"🪴 {ans}")
+
+##########################
+### EXTERNAL FUNCTIONS ###
+##########################
+
+def get_answer(query):
+    return chatbot.get_response(query)

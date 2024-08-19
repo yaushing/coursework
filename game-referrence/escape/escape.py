@@ -361,9 +361,8 @@ print("Scenery checksum: " + str(checksum))
 for room in range(1, 26):# Add random scenery in planet locations.
     if room != 13: # Skip room 13.
         scenery_item = random.choice([16, 28, 29, 30])
-        scenery[room] = [[scenery_item, random.randint(2, 10),
-                          random.randint(2, 10)]]
-        
+        scenery[room] = [[scenery_item, random.randint(2, 10), random.randint(2, 10)]]
+
 # Use loops to add fences to the planet surface rooms.
 for room_coordinate in range(0, 13):
     for room_number in [1, 2, 3, 4, 5]: # Add top fence
@@ -621,8 +620,7 @@ def game_loop():
 #### Teleport section ends
 
   # If the player is standing somewhere they shouldn't, move them back.
-    if room_map[player_y][player_x] not in items_player_may_stand_on \
-               or hazard_map[player_y][player_x] != 0:
+    if room_map[player_y][player_x] not in items_player_may_stand_on or hazard_map[player_y][player_x] != 0:
         player_x = old_player_x
         player_y = old_player_y
         player_frame = 0

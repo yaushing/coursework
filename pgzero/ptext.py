@@ -90,6 +90,7 @@ def wrap(text, fontname=None, fontsize=None, sysfontname=None,
         width = widthem * REFERENCE_FONT_SIZE
     if strip is None:
         strip = DEFAULT_STRIP
+    text = str(text)
     texts = text.replace("\t", "    ").split("\n")
     lines = []
     for text in texts:
