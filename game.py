@@ -2,24 +2,23 @@ from bot import get_answer
 import pgzrun
 import time, random, math
 import pickle
-###############
-## VARIABLES ##
-###############
+#################
+### VARIABLES ###
+#################
 
 WIDTH = 900 # Window size
 HEIGHT = 800
 TILE_SIZE = 30 # Size of each tile
 ROOM_SIZE = 20
 ROOM_MAP_WIDTH = 3 # Number of rooms in the map (left to right)
-ROOM_MAP_HEIGHT = 3 # Number of rooms in the map (top to bottom)
+ROOM_MAP_HEIGHT = 4 # Number of rooms in the map (top to bottom)
 TRANSPARENT_WALL_HEIGHTS = [11, 17, 31, 38, 51, 54, 57] # The rows of rooms that have a transparent wall
-DOOR_OPENING_HEIGHTS = [11, 17, 21, 25, 34, 38, 42, 48] # The rows of rooms that have a door
 top_left_x = 0 
 top_left_y = 60 # Shifts room down so that the top-most pillar is visible
 x_shift, y_shift = 0, 0 # Shifts rooms in relation to player (player stays in the centre of the screen)
 
 ROBOT_NAME = "Vimal"
-SHIP_NAME = "Jolene"
+SHIP_NAME = "Endeavour, OV-752"
 
 robot_speaking = False # Makes game decide whether to display speech bubble for the robot
 robot_text = "" # Text to be displayed when robot_speaking is Trye
@@ -28,6 +27,7 @@ player_text = ""
 SHIFTED = list(")!@#$%^&*(") # Used for keyboard typing
 wall_transparency_frame = 0
 door_opening_frame = 0
+doors = {}
 
 
 ########################
@@ -58,7 +58,7 @@ player_direction = "right" # The direction the player is facing
 player_frame = 0 # Frame of animation
 player_image = PLAYER[player_direction][player_frame] # Image of the player
 player_offset_x, player_offset_y = 0, 0 # Player offset to fit animations and movement along the x and y axis (0.25 offset, frame 1, 0.5 offset, frame 2... 1 offset = x += 1, frame 0 again)
-player_x, player_y = 9, 9 # Player position in relation to environment
+player_x, player_y = 30, 49 # Player position in relation to environment
 current_room = 0 # The room the player is in
 
 PLAYER_SHADOW = {
@@ -81,6 +81,17 @@ PLAYER_SHADOW = {
     }
 
 player_image_shadow = PLAYER_SHADOW["down"][0]
+
+#######################
+### ROBOT VARIABLES ###
+#######################
+robot_x, robot_y = player_x, player_y
+if player_direction == "left": robot_x += 0.5
+elif player_direction == "right": robot_x -= 0.5
+elif player_direction == "up": robot_y += 0.5
+elif player_direction == "down": robot_y -= 0.5
+
+
 
 ###############
 ### OBJECTS ###
@@ -134,13 +145,31 @@ OBJECTS = {
 # 255: The space used up by wide objects, does not allow player to walk through.
 # 256: The space used up by wide objects, however allows player to walk through.
 
+#############
+### ROOMS ###
+#############
+ROOMS = [
+    [0, 0, False, False, False, False, "", ""],
+    [14, 10, False, False, False, True, "the bridge.", "You used to be able to control your ship from here..."],
+    [0, 0, False, False, False, False, "", ""],
+    [4, 4, False, True, False, True, "an access corridor.", "Why would you come from here?"],
+    [10, 6, True, True, True, True, "mission control.", "Back when comms worked, we could talk to Earth from here..."],
+    [4, 4, True, False, False, True, "an access corridor.", "How did you get here?"],
+    [16, 16, False, True, True, True, "the lab.", "The other astronauts used to run their experiments here."],
+    [18, 18, True, True, True, True, "The one and only lounging area in the entire spaceship."],
+    [16, 16, True, False, True, True, "the garden.", "The plants grow here. Tomatoes grow surprisingly well!"],
+    [14, 10, False, False, True, False, "the dorm.", "All the astronauts used to stay here at night."],
+    [10, 10, False, False, True, False, "the toilet.", "Also, the only one."],
+    [14, 10, False, False, True, False, "the life support system.", ""],
+]
+
 ###############
 ### SCENERY ###
 ###############
 
 SCENERY = {
-    0: [[7, 0, 0], [14, 0, 2], [7, 0, 3], [8, 0, 7], [14, 0, 9], [8, 0, 10], [7, 2, 0], [14, 2, 2], [7, 2, 3], [8, 2, 7], [14, 2, 9], [8, 2, 10], [7, 5, 0], [14, 5, 2], [7, 5, 3], [8, 5, 7], [14, 5, 9], [8, 5, 10], [7, 7, 0], [14, 7, 2], [7, 7, 3], [8, 7, 7], [14, 7, 9], [8, 7, 10], [42, -1, 2], [35, 8, 0]],
-    1: [[35, -1, 1], [12, 0, 0], [13, 0, 1], [13, 0, 2], [25, 0, 10], [26, 2, 3], [11, 5, 2], [10, 5, 11], [30, 5, 3], [11, 9, 2], [10, 9, 11], [30, 9, 3], [26, 10, 3]]
+    9: [[7, 0, 0], [14, 0, 2], [7, 0, 3], [8, 0, 7], [14, 0, 9], [8, 0, 10], [7, 2, 0], [14, 2, 2], [7, 2, 3], [8, 2, 7], [14, 2, 9], [8, 2, 10], [7, 5, 0], [14, 5, 2], [7, 5, 3], [8, 5, 7], [14, 5, 9], [8, 5, 10], [7, 7, 0], [14, 7, 2], [7, 7, 3], [8, 7, 7], [14, 7, 9], [8, 7, 10], [35, 8, 0]],
+    6: [[12, 0, 0], [13, 0, 1], [13, 0, 2], [25, 0, 10], [26, 2, 3], [11, 5, 2], [10, 5, 11], [30, 5, 3], [11, 9, 2], [10, 9, 11], [30, 9, 3], [26, 10, 3]]
 }
 
 checksum = 0
@@ -152,10 +181,8 @@ for key, room_scenery_list in SCENERY.items():
                      + scenery_item_list[2] * (key + 2))
         check_counter += 1
 print(checksum)
-assert check_counter == 39, f"Expected 39 scenery items, got {check_counter}."
-assert checksum == 857, f"Expected checksum of 857, got {checksum}."
-
-
+assert check_counter == 37, f"Expected 37 scenery items, got {check_counter}."
+assert checksum == 6775, f"Expected checksum of 6775, got {checksum}."
 
 items_player_may_stand_on = [1, 4, 5, 256]
 
@@ -236,8 +263,8 @@ def create_room(room_number, width, height, left=False, right=False, up=False, d
             if i == ud_borders - 1:
                 room[-i - 2][sections - 1 + lr_borders] = 5
                 room[-i - 1][sections + lr_borders] = 256
-    for row in room:
-        print(''.join(list(map(str, row))))
+    #for row in room:
+        #print(''.join(list(map(str, row))))
     return room
 
 def generate_rooms(rooms):
@@ -272,7 +299,7 @@ def generate_rooms(rooms):
     for i in range(len(final)):
         assert len(final[i]) == ROOM_MAP_WIDTH * ROOM_SIZE, f"Expected width of row {i} to be {ROOM_MAP_WIDTH * ROOM_SIZE}, got {len(final[i])}" 
         trans_wall_count += final[i].count(3)
-    assert trans_wall_count == 89, f"Expected 89 transparent walls, got {trans_wall_count}."
+    assert trans_wall_count == 96, f"Expected 96 transparent walls, got {trans_wall_count}."
     return final
 
 def adjust_wall_transparency():
@@ -285,29 +312,25 @@ def adjust_wall_transparency():
         wall_transparency_frame -= 1 # Fade wall out.
 
 def open_doors():
-    global door_opening_frame
-    HEIGHT_TRIGGERS = [i - 1 for i in DOOR_OPENING_HEIGHTS]
-    HEIGHT_TRIGGERS += [i - 2 for i in DOOR_OPENING_HEIGHTS]
-    HEIGHT_TRIGGERS += DOOR_OPENING_HEIGHTS
-    HEIGHT_TRIGGERS += [i + 1 for i in DOOR_OPENING_HEIGHTS]
-    HEIGHT_TRIGGERS += [i + 2 for i in DOOR_OPENING_HEIGHTS]
-    checked_tiles = [room_map[player_y - 2][player_x], room_map[player_y - 1][player_x], room_map[player_y][player_x], room_map[player_y + 1][player_x], room_map[player_y + 2][player_x]]
-    if player_y in HEIGHT_TRIGGERS and (5 in checked_tiles or 256 in checked_tiles) and door_opening_frame < 3:
-        door_opening_frame += 1 # Fade wall in.
-    if (not player_y in HEIGHT_TRIGGERS or (not 5 in checked_tiles and not 256 in checked_tiles)) and door_opening_frame > 0:
-        door_opening_frame -= 1 # Fade wall out.
-
-ROOMS = [
-    [14, 10, False, True, False, False, "the dorm.", "All the astronauts used to stay here at night."],
-    [16, 16, True, True, False, True, "the lab.", "The other astronauts used to run their experiments here."],
-    [4, 4, True, False, False, True, "an access corridor.", "Why would you come from here?"],
-    [0, 0, False, False, False, False, "the void of space.", "How did you even get out here?"],
-    [18, 18, False, True, True, True, "mission control.", "You used to be able to communicate with your officers from here."],
-    [6, 10, True, False, True, True, "the bridge.", "You used to be able to control your ship from here..."],
-    [14, 10, False, True, False, False, "the life support system.", ""],
-    [16, 16, True, True, True, False, "the garden.", "The plants grow here. Tomatoes grow surprisingly well!"],
-    [4, 4, True, False, True, False, "an access corridor.", "How did you get here?"],
-]
+    global doors
+    checked_tiles = {
+        (player_x - 1) * 2 * (player_y - 2) - (player_x - 1)**2: room_map[player_y - 2][player_x - 1],
+        (player_x - 1) * 2 * (player_y - 1) - (player_x - 1)**2: room_map[player_y - 1][player_x - 1],
+        (player_x - 1) * 2 * (player_y) - (player_x - 1)**2: room_map[player_y][player_x - 1],
+        (player_x - 1) * 2 * (player_y + 1) - (player_x - 1)**2: room_map[player_y + 1][player_x - 1],
+        (player_x - 1) * 2 * (player_y + 2) - (player_x - 1)**2: room_map[player_y + 2][player_x - 1],
+        (player_x) * 2 * (player_y - 2) - (player_x)**2: room_map[player_y - 2][player_x],
+        (player_x) * 2 * (player_y - 1) - (player_x)**2: room_map[player_y - 1][player_x],
+        (player_x) * 2 * (player_y) - (player_x)**2: room_map[player_y][player_x],
+        (player_x) * 2 * (player_y + 1) - (player_x)**2: room_map[player_y + 1][player_x],
+        (player_x) * 2 * (player_y + 2) - (player_x)**2: room_map[player_y + 2][player_x],
+    }
+    for k, v in checked_tiles.items():
+        if v == 5 and doors[k] < 3:
+            doors[k] += 1
+    for k in list(doors.keys()):
+        if not k in checked_tiles and doors[k] > 0:
+            doors[k] -= 1
 
 def draw_image(image, y, x):
     screen.blit(image, (top_left_x + ((x + x_shift) * TILE_SIZE), top_left_y + ((y + y_shift) * TILE_SIZE) - image.get_height()) )
@@ -322,8 +345,12 @@ def draw_player():
     screen.blit(player_image_shadow, (top_left_x + 15 * TILE_SIZE, top_left_y + 15 * TILE_SIZE))
 
 room_map = generate_rooms(ROOMS)
-for row in room_map:
-    print("".join(list(map(str, row))))
+#for row in room_map:
+    #print("".join(list(map(str, row))))
+for y in range(len(room_map)):
+    for x in range(len(room_map[y])):
+        if room_map[y][x] == 5:
+            doors[2 * x * y - x**2] = 0
 
 ###############
 ### CHATBOT ###
@@ -434,13 +461,13 @@ def draw():
                 if item_here == 3:
                     image = OBJECTS[item_here][0][wall_transparency_frame]
                 if item_here == 5:
-                    image = OBJECTS[item_here][0][door_opening_frame]
+                    image = OBJECTS[item_here][0][doors[2 * x * y - x**2]]
                 draw_image(image, y, x) 
 
                 if OBJECTS[item_here][1] is not None and room_map[y + 1][x] != 0: # If object has a shadow, and the tile below it is not space
                     shadow_image = OBJECTS[item_here][1]
                     if item_here == 5:
-                        shadow_image = OBJECTS[item_here][1][door_opening_frame]
+                        shadow_image = OBJECTS[item_here][1][doors[2 * x * y - x**2]]
                     # if shadow might need horizontal tiling
                     if shadow_image in [images.half_shadow, images.full_shadow]:
                         shadow_width = int(image.get_width() / TILE_SIZE)
@@ -474,6 +501,10 @@ def end_message():
 def game_loop():
     global player_x, player_y
     global from_player_x, from_player_y
+    global robot_x, robot_y
+    global from_robot_x, from_robot_y
+    global robot_image, robot_image_shadow
+    global _robot_offset_x, robot_offset_y
     global player_image, player_image_shadow 
     global player_offset_x, player_offset_y
     global player_frame, player_direction
@@ -557,9 +588,7 @@ def display_help_message():
     while facing == 255 or facing == 0 or facing == 256:
         facing = room_map[checked[0]][checked[1] - checking_x_shift]
         checking_x_shift += 1
-        print(facing)
     if facing != 1:
-        print(facing)
         display_message(f"That is {OBJECTS[facing][2]} {OBJECTS[facing][3]}")
     else:
         display_message(f"This is {ROOMS[current_room][6]} {ROOMS[current_room][7]}")
