@@ -610,13 +610,13 @@ def game_loop():
 
 #### Teleporter for testing
 #### Remove this section for the real game
-##    if keyboard.x:
-##        current_room = int(input("Enter room number:"))
-##        player_x = 2
-##        player_y = 2
-##        generate_map()
-##        start_room()
-##        sounds.teleport.play()
+    if keyboard.x:
+        current_room = int(input("Enter room number:"))
+        player_x = 2
+        player_y = 2
+        generate_map()
+        start_room()
+        sounds.teleport.play()
 #### Teleport section ends
 
   # If the player is standing somewhere they shouldn't, move them back.
