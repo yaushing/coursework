@@ -54,7 +54,7 @@ PLAYER = {
             ]
     }
 
-player_direction = "right" # The direction the player is facing
+player_direction = "up" # The direction the player is facing
 player_frame = 0 # Frame of animation
 player_image = PLAYER[player_direction][player_frame] # Image of the player
 player_offset_x, player_offset_y = 0, 0 # Player offset to fit animations and movement along the x and y axis (0.25 offset, frame 1, 0.5 offset, frame 2... 1 offset = x += 1, frame 0 again)
@@ -80,18 +80,22 @@ PLAYER_SHADOW = {
             ]
     }
 
-player_image_shadow = PLAYER_SHADOW["down"][0]
+player_image_shadow = PLAYER_SHADOW[player_direction][0]
 
 #######################
 ### ROBOT VARIABLES ###
 #######################
-robot_x, robot_y = player_x, player_y
-if player_direction == "left": robot_x += 0.5
-elif player_direction == "right": robot_x -= 0.5
-elif player_direction == "up": robot_y += 0.5
-elif player_direction == "down": robot_y -= 0.5
-
-
+ROBOT = {
+    "left": [images.drone, images.drone],
+    "right": [images.drone, images.drone],
+    "up": [images.drone, images.drone],
+    "down": [images.drone, images.drone]
+}
+robot_direction = player_direction
+robot_moving = 0
+robot_image = ROBOT[robot_direction][robot_moving]
+robot_offset_x, robot_offset_y = 0, 0
+robot_x, robot_y = player_x, player_y + 1
 
 ###############
 ### OBJECTS ###
@@ -156,7 +160,7 @@ ROOMS = [
     [10, 6, True, True, True, True, "mission control.", "Back when comms worked, we could talk to Earth from here..."],
     [4, 4, True, False, False, True, "an access corridor.", "How did you get here?"],
     [16, 16, False, True, True, True, "the lab.", "The other astronauts used to run their experiments here."],
-    [18, 18, True, True, True, True, "The one and only lounging area in the entire spaceship."],
+    [18, 18, True, True, True, True, "The one and only lounging area in the entire spaceship.", "It's pretty nice!"],
     [16, 16, True, False, True, True, "the garden.", "The plants grow here. Tomatoes grow surprisingly well!"],
     [14, 10, False, False, True, False, "the dorm.", "All the astronauts used to stay here at night."],
     [10, 10, False, False, True, False, "the toilet.", "Also, the only one."],
@@ -344,6 +348,10 @@ def draw_player():
     player_image_shadow = PLAYER_SHADOW[player_direction][player_frame]
     screen.blit(player_image_shadow, (top_left_x + 15 * TILE_SIZE, top_left_y + 15 * TILE_SIZE))
 
+def draw_robot():
+    robot_image = ROBOT[robot_direction][robot_moving]
+    screen.blit(robot_image, (top_left_x + (robot_x + x_shift + robot_offset_x) * TILE_SIZE, top_left_y + (robot_y + y_shift + robot_offset_y) * TILE_SIZE - robot_image.get_height()))
+
 room_map = generate_rooms(ROOMS)
 #for row in room_map:
     #print("".join(list(map(str, row))))
@@ -476,16 +484,20 @@ def draw():
                             draw_shadow(shadow_image, y, x+z)
                     else:
                         draw_shadow(shadow_image, y, x)
+        if (robot_y == y):
+            draw_robot()
         if (player_y == y):
             draw_player()
     if robot_speaking:
         screen.blit(images.textbox, (30, 650))
         screen.draw.text(f"{ROBOT_NAME}", (60, 670), color="black", fontname="biorhyme", width=780, lineheight=1)
         screen.draw.text(robot_text, (60, 700), color="black", fontname="biorhyme", width=780, lineheight=1, fontsize=15)
+        screen.blit(images.drone_text, (30, 600))
     if player_speaking:
         screen.blit(images.textbox, (30, 650))
         screen.draw.text("You", (60, 670), color="black", fontname="biorhyme", width=780, lineheight=1)
         screen.draw.text(player_text, (60, 700), color="black", fontname="biorhyme", width=780, lineheight=1, fontsize = 15)
+        screen.blit(images.player_text, (30, 600))
 
 def display_message(text):
     global robot_speaking, robot_text
@@ -501,15 +513,14 @@ def end_message():
 def game_loop():
     global player_x, player_y
     global from_player_x, from_player_y
-    global robot_x, robot_y
-    global from_robot_x, from_robot_y
-    global robot_image, robot_image_shadow
-    global _robot_offset_x, robot_offset_y
     global player_image, player_image_shadow 
     global player_offset_x, player_offset_y
     global player_frame, player_direction
     global x_shift, y_shift
     global current_room
+    global robot_x, robot_y
+    global robot_moving
+    global robot_offset_x, robot_offset_y
 
     current_room = player_x // ROOM_SIZE + (player_y // ROOM_SIZE) * 3
     if player_frame > 0:
@@ -519,10 +530,16 @@ def game_loop():
             player_frame = 0
             player_offset_x = 0
             player_offset_y = 0
+            robot_moving = 0
+            robot_offset_x = 0
+            robot_offset_y = 0
 
 # save player's current position
     old_player_x = player_x
     old_player_y = player_y
+    old_robot_x = robot_x
+    old_robot_y = robot_y
+    old_player_direction = player_direction
 
 # move if key is pressed
     if player_frame == 0:
@@ -532,24 +549,28 @@ def game_loop():
             player_x += 1
             player_direction = "right"
             player_frame = 1
+            update_robot_pos(old_player_x, old_player_y)
         elif keyboard.left or keyboard.a: #elif stops player making diagonal movements
             from_player_x = player_x
             from_player_y = player_y
             player_x -= 1
             player_direction = "left"
             player_frame = 1
+            update_robot_pos(old_player_x, old_player_y)
         elif keyboard.up or keyboard.w:
             from_player_x = player_x
             from_player_y = player_y
             player_y -= 1
             player_direction = "up"
             player_frame = 1
+            update_robot_pos(old_player_x, old_player_y)
         elif keyboard.down or keyboard.s:
             from_player_x = player_x
             from_player_y = player_y
             player_y += 1
             player_direction = "down"
-            player_frame = 1      
+            player_frame = 1
+            update_robot_pos(old_player_x, old_player_y)
     if room_map[player_y][player_x] not in items_player_may_stand_on:
         player_x = old_player_x
         player_y = old_player_y
@@ -562,6 +583,14 @@ def game_loop():
         player_offset_y = 1 - (0.25 * player_frame)
     if player_direction == "down" and player_frame > 0:
         player_offset_y = -1 + (0.25 * player_frame)
+    if robot_direction == "right" and robot_moving > 0:
+        robot_offset_x = -1 + (0.25 * player_frame)
+    if robot_direction == "left" and robot_moving > 0:
+        robot_offset_x = 1 - (0.25 * player_frame)
+    if robot_direction == "up" and robot_moving > 0:
+        robot_offset_y = 1 - (0.25 * player_frame)
+    if robot_direction == "down" and robot_moving > 0:
+        robot_offset_y = -1 + (0.25 * player_frame)
     x_shift, y_shift = - (player_x + player_offset_x - 15), -(player_y + player_offset_y - 15)
 
 def robot_interactions():
@@ -570,6 +599,22 @@ def robot_interactions():
         clock.unschedule(robot_interactions)
         display_help_message()
         clock.schedule_unique(end_message, 5.0)
+
+def update_robot_pos(old_x, old_y):
+    global robot_x, robot_y
+    global robot_direction, robot_moving
+    change_x = old_x - robot_x
+    change_y = old_y - robot_y
+    robot_moving = 1
+    if change_y == 1:
+        robot_direction = "down"
+    elif change_y == -1:
+        robot_direction = "up"
+    elif change_x == -1:
+        robot_direction = "left"
+    elif change_x == 1:
+        robot_direction = "right"
+    robot_x, robot_y = old_x, old_y
 
 def display_help_message():
     if player_direction == "right":
