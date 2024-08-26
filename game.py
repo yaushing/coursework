@@ -5,29 +5,24 @@ import pickle
 #################
 ### VARIABLES ###
 #################
-
 WIDTH = 900 # Window size
 HEIGHT = 800
 TILE_SIZE = 30 # Size of each tile
 ROOM_SIZE = 20
 ROOM_MAP_WIDTH = 3 # Number of rooms in the map (left to right)
 ROOM_MAP_HEIGHT = 4 # Number of rooms in the map (top to bottom)
-TRANSPARENT_WALL_HEIGHTS = [11, 17, 31, 38, 51, 54, 57] # The rows of rooms that have a transparent wall
+SHIFTED = list(")!@#$%^&*(") # Used for keyboard typing
+ROBOT_NAME = "Vimal"
+SHIP_NAME = "Jolene"
 top_left_x = 0 
 top_left_y = 60 # Shifts room down so that the top-most pillar is visible
 x_shift, y_shift = 0, 0 # Shifts rooms in relation to player (player stays in the centre of the screen)
-
-ROBOT_NAME = "Vimal"
-SHIP_NAME = "Endeavour, OV-752"
-
 robot_speaking = False # Makes game decide whether to display speech bubble for the robot
 robot_text = "" # Text to be displayed when robot_speaking is Trye
 player_speaking = False # Same thing but for the player
 player_text = ""
-SHIFTED = list(")!@#$%^&*(") # Used for keyboard typing
-wall_transparency_frame = 0
-door_opening_frame = 0
 doors = {}
+walls = {}
 
 
 ########################
@@ -157,10 +152,10 @@ ROOMS = [
     [14, 10, False, False, False, True, "the bridge.", "You used to be able to control your ship from here..."],
     [0, 0, False, False, False, False, "", ""],
     [4, 4, False, True, False, True, "an access corridor.", "Why would you come from here?"],
-    [10, 6, True, True, True, True, "mission control.", "Back when comms worked, we could talk to Earth from here..."],
+    [12, 10, True, True, True, True, "mission control.", "Back when comms worked, we could talk to Earth from here..."],
     [4, 4, True, False, False, True, "an access corridor.", "How did you get here?"],
     [16, 16, False, True, True, True, "the lab.", "The other astronauts used to run their experiments here."],
-    [18, 18, True, True, True, True, "The one and only lounging area in the entire spaceship.", "It's pretty nice!"],
+    [18, 18, True, True, True, True, "the one and only lounging area in the entire spaceship.", "It's pretty nice!"],
     [16, 16, True, False, True, True, "the garden.", "The plants grow here. Tomatoes grow surprisingly well!"],
     [14, 10, False, False, True, False, "the dorm.", "All the astronauts used to stay here at night."],
     [10, 10, False, False, True, False, "the toilet.", "Also, the only one."],
@@ -172,6 +167,8 @@ ROOMS = [
 ###############
 
 SCENERY = {
+    1: [[35, -1, 0], [41, 1, 3], [41, 1, 7] ,[15, 3, 0], [15, 3, 3], [15, 3, 7], [15, 3, 10], [15, 6, 0], [15, 6, 3], [15, 6, 7], [15, 6, 10]],
+    4: [[33, 2, 0], [33, 2, 6], [33, 5, 0], [33, 5, 6]],
     9: [[7, 0, 0], [14, 0, 2], [7, 0, 3], [8, 0, 7], [14, 0, 9], [8, 0, 10], [7, 2, 0], [14, 2, 2], [7, 2, 3], [8, 2, 7], [14, 2, 9], [8, 2, 10], [7, 5, 0], [14, 5, 2], [7, 5, 3], [8, 5, 7], [14, 5, 9], [8, 5, 10], [7, 7, 0], [14, 7, 2], [7, 7, 3], [8, 7, 7], [14, 7, 9], [8, 7, 10], [35, 8, 0]],
     6: [[12, 0, 0], [13, 0, 1], [13, 0, 2], [25, 0, 10], [26, 2, 3], [11, 5, 2], [10, 5, 11], [30, 5, 3], [11, 9, 2], [10, 9, 11], [30, 9, 3], [26, 10, 3]]
 }
@@ -185,8 +182,8 @@ for key, room_scenery_list in SCENERY.items():
                      + scenery_item_list[2] * (key + 2))
         check_counter += 1
 print(checksum)
-assert check_counter == 37, f"Expected 37 scenery items, got {check_counter}."
-assert checksum == 6775, f"Expected checksum of 6775, got {checksum}."
+assert check_counter == 52, f"Expected 52 scenery items, got {check_counter}."
+assert checksum == 7906, f"Expected checksum of 7906, got {checksum}."
 
 items_player_may_stand_on = [1, 4, 5, 256]
 
@@ -232,6 +229,8 @@ def create_room(room_number, width, height, left=False, right=False, up=False, d
                     room[scenery_object[1] + 1][scenery_object[2] + 1 + i] = 0
                 else: room[scenery_object[1] + 1][scenery_object[2] + 1 + i] = 255
             room[scenery_object[1] + 1][scenery_object[2] + 1] = scenery_object[0]
+    for row in room:
+        print(''.join(list(map(str, row))))
     room = [[0 for _ in range(width)] for _ in range(ud_borders)] + room + [[0 for _ in range(width)] for _ in range(ud_borders)]
     for i in range(ROOM_SIZE):
         room[i] = [0 for _ in range(lr_borders)] + room[i] + [0 for _ in range(lr_borders)]
@@ -267,8 +266,6 @@ def create_room(room_number, width, height, left=False, right=False, up=False, d
             if i == ud_borders - 1:
                 room[-i - 2][sections - 1 + lr_borders] = 5
                 room[-i - 1][sections + lr_borders] = 256
-    #for row in room:
-        #print(''.join(list(map(str, row))))
     return room
 
 def generate_rooms(rooms):
@@ -307,13 +304,30 @@ def generate_rooms(rooms):
     return final
 
 def adjust_wall_transparency():
-    global wall_transparency_frame
-    HEIGHT_TRIGGERS = [i - 1 for i in TRANSPARENT_WALL_HEIGHTS] # y values where the transparent walls will be called
-    HEIGHT_TRIGGERS += [i - 2 for i in TRANSPARENT_WALL_HEIGHTS]
-    if player_y in HEIGHT_TRIGGERS and (room_map[player_y + 2][player_x] == 3 or room_map[player_y + 1][player_x] == 3) and wall_transparency_frame < 4:
-        wall_transparency_frame += 1 # Fade wall in.
-    if (player_y not in HEIGHT_TRIGGERS or (room_map[player_y + 2][player_x] != 3 and room_map[player_y + 1][player_x] != 3)) and wall_transparency_frame > 0:
-        wall_transparency_frame -= 1 # Fade wall out.
+    global walls
+    checked_tiles = {
+        (player_x - 1) * 2 * (player_y - 2) - (player_x - 1)**2: room_map[player_y - 2][player_x - 1],
+        (player_x - 1) * 2 * (player_y - 1) - (player_x - 1)**2: room_map[player_y - 1][player_x - 1],
+        (player_x - 1) * 2 * (player_y) - (player_x - 1)**2: room_map[player_y][player_x - 1],
+        (player_x - 1) * 2 * (player_y + 1) - (player_x - 1)**2: room_map[player_y + 1][player_x - 1],
+        (player_x - 1) * 2 * (player_y + 2) - (player_x - 1)**2: room_map[player_y + 2][player_x - 1],
+        (player_x) * 2 * (player_y - 2) - (player_x)**2: room_map[player_y - 2][player_x],
+        (player_x) * 2 * (player_y - 1) - (player_x)**2: room_map[player_y - 1][player_x],
+        (player_x) * 2 * (player_y) - (player_x)**2: room_map[player_y][player_x],
+        (player_x) * 2 * (player_y + 1) - (player_x)**2: room_map[player_y + 1][player_x],
+        (player_x) * 2 * (player_y + 2) - (player_x)**2: room_map[player_y + 2][player_x],
+        (player_x + 1) * 2 * (player_y - 2) - (player_x)**2: room_map[player_y - 2][player_x + 1],
+        (player_x + 1) * 2 * (player_y - 1) - (player_x + 1)**2: room_map[player_y - 1][player_x + 1],
+        (player_x + 1) * 2 * (player_y) - (player_x + 1)**2: room_map[player_y][player_x + 1],
+        (player_x + 1) * 2 * (player_y + 1) - (player_x + 1)**2: room_map[player_y + 1][player_x + 1],
+        (player_x + 1) * 2 * (player_y + 2) - (player_x + 1)**2: room_map[player_y + 2][player_x + 1],
+    }
+    for k, v in checked_tiles.items():
+        if v == 3 and walls[k] < 4:
+            walls[k] += 1
+    for k in list(walls.keys()):
+        if not k in checked_tiles and walls[k] > 0:
+            walls[k] -= 1
 
 def open_doors():
     global doors
@@ -351,14 +365,6 @@ def draw_player():
 def draw_robot():
     robot_image = ROBOT[robot_direction][robot_moving]
     screen.blit(robot_image, (top_left_x + (robot_x + x_shift + robot_offset_x) * TILE_SIZE, top_left_y + (robot_y + y_shift + robot_offset_y) * TILE_SIZE - robot_image.get_height()))
-
-room_map = generate_rooms(ROOMS)
-#for row in room_map:
-    #print("".join(list(map(str, row))))
-for y in range(len(room_map)):
-    for x in range(len(room_map[y])):
-        if room_map[y][x] == 5:
-            doors[2 * x * y - x**2] = 0
 
 ###############
 ### CHATBOT ###
@@ -420,7 +426,7 @@ def end_player_message(): # When the player is done typing, close the popup. If 
     player_speaking = False
     if player_text == ":q": 
         clock.schedule_interval(robot_interactions, 0.05)
-        clock.schedule_interval(game_loop, 0.01)
+        clock.schedule_interval(game_loop, 0.02)
         pass
     else: get_reply(player_text)
 
@@ -467,7 +473,7 @@ def draw():
             if item_here not in items_player_may_stand_on + [255] or item_here == 5:
                 image = OBJECTS[item_here][0]
                 if item_here == 3:
-                    image = OBJECTS[item_here][0][wall_transparency_frame]
+                    image = OBJECTS[item_here][0][walls[2 * x * y - x**2]]
                 if item_here == 5:
                     image = OBJECTS[item_here][0][doors[2 * x * y - x**2]]
                 draw_image(image, y, x) 
@@ -525,7 +531,7 @@ def game_loop():
     current_room = player_x // ROOM_SIZE + (player_y // ROOM_SIZE) * 3
     if player_frame > 0:
         player_frame += 1
-        time.sleep(0.05)
+        time.sleep(0.02)
         if player_frame == 5:
             player_frame = 0
             player_offset_x = 0
@@ -537,9 +543,6 @@ def game_loop():
 # save player's current position
     old_player_x = player_x
     old_player_y = player_y
-    old_robot_x = robot_x
-    old_robot_y = robot_y
-    old_player_direction = player_direction
 
 # move if key is pressed
     if player_frame == 0:
@@ -592,6 +595,8 @@ def game_loop():
     if robot_direction == "down" and robot_moving > 0:
         robot_offset_y = -1 + (0.25 * player_frame)
     x_shift, y_shift = - (player_x + player_offset_x - 15), -(player_y + player_offset_y - 15)
+    with open('savefile.dat', 'wb') as f:
+        pickle.dump([STARTED, player_x, player_y, x_shift, y_shift, robot_x, robot_y, player_direction, robot_direction], f, protocol=2)
 
 def robot_interactions():
     global robot_speaking
@@ -643,7 +648,7 @@ def display_help_message():
 #############
 try:
     with open('savefile.dat', 'rb') as f:
-        STARTED = pickle.load(f)
+        STARTED, player_x, player_y, x_shift, y_shift, robot_x, robot_y, player_direction, robot_direction = pickle.load(f)
 except:
     STARTED = False
 
@@ -651,12 +656,18 @@ if not STARTED:
     clock.unschedule(robot_interactions)
     display_message(f"Hi! I'm {ROBOT_NAME}, your AI companion (and last functioning robot) aboard the {SHIP_NAME}. If you need any help, just face what you want to find out more about and press 'T'. If you want to chat, just press 'C'. Now, use WASD or the arrow keys to move!")
     clock.schedule_unique(end_message, 20.0)
-
-
-clock.schedule_interval(game_loop, 0.03)
+    STARTED = True
+room_map = generate_rooms(ROOMS)
+#for row in room_map:
+    #print("".join(list(map(str, row))))
+for y in range(len(room_map)):
+    for x in range(len(room_map[y])):
+        if room_map[y][x] == 5:
+            doors[2 * x * y - x**2] = 0
+        if room_map[y][x] == 3:
+            walls[2 * x * y - x**2] = 0
+clock.schedule_interval(game_loop, 0.02)
 clock.schedule_interval(adjust_wall_transparency, 0.05)
 clock.schedule_interval(open_doors, 0.05)
 clock.schedule_interval(robot_interactions, 0.05)
-with open('savefile.dat', 'wb') as f:
-    pickle.dump([STARTED], f, protocol=2)
 pgzrun.go()
