@@ -1,5 +1,7 @@
-from bot import get_answer
-import pgzrun
+from chatterbot import ChatBot
+from chatterbot.trainers import ListTrainer
+import re
+import pgzrun, pygame
 import time, random, math
 import pickle
 #################
@@ -14,6 +16,8 @@ ROOM_MAP_HEIGHT = 4 # Number of rooms in the map (top to bottom)
 SHIFTED = list(")!@#$%^&*(") # Used for keyboard typing
 ROBOT_NAME = "Vimal"
 SHIP_NAME = "Jolene"
+CHAT_DATA = "chat.txt"
+MUSIC_CHOICES = ['kisstherain', 'merrygoroundoflife']
 top_left_x = 0 
 top_left_y = 60 # Shifts room down so that the top-most pillar is visible
 x_shift, y_shift = 0, 0 # Shifts rooms in relation to player (player stays in the centre of the screen)
@@ -23,7 +27,8 @@ player_speaking = False # Same thing but for the player
 player_text = ""
 doors = {}
 walls = {}
-
+paused = False
+mute = False
 
 ########################
 ### PLAYER VARIABLES ###
@@ -181,12 +186,38 @@ for key, room_scenery_list in SCENERY.items():
                      + scenery_item_list[1] * (key + 1) 
                      + scenery_item_list[2] * (key + 2))
         check_counter += 1
-print(checksum)
 assert check_counter == 52, f"Expected 52 scenery items, got {check_counter}."
 assert checksum == 7906, f"Expected checksum of 7906, got {checksum}."
 
 items_player_may_stand_on = [1, 4, 5, 256]
 
+########################
+### CHATBOT TRAINING ###
+########################
+def remove_chat_metadata(chat_export_file):
+    date_time = r"(\d+\/\d+\/\d+,\s\d+:\d+)"  # e.g. "9/16/22, 06:34"
+    dash_whitespace = r"\s-\s"  # " - "
+    username = r"([\w\s]+)"  # e.g. "Martin"
+    metadata_end = r":\s"  # ": "
+    pattern = date_time + dash_whitespace + username + metadata_end
+
+    with open(chat_export_file, "r") as corpus_file:
+        content = corpus_file.read()
+    cleaned_corpus = re.sub(pattern, "", content)
+    return tuple(cleaned_corpus.split("\n"))
+
+def remove_non_message_text(export_text_lines):
+    messages = export_text_lines[1:-1]
+
+    filter_out_msgs = ("<Media omitted>",)
+    return tuple((msg for msg in messages if msg not in filter_out_msgs))
+
+chatbot = ChatBot("Chatpot")
+trainer = ListTrainer(chatbot)
+cleaned_data = remove_non_message_text(remove_chat_metadata(CHAT_DATA))
+trainer.train(cleaned_data)
+def get_answer(query):
+    return chatbot.get_response(query)
 ################
 ### MAKE MAP ###
 ################
@@ -229,8 +260,6 @@ def create_room(room_number, width, height, left=False, right=False, up=False, d
                     room[scenery_object[1] + 1][scenery_object[2] + 1 + i] = 0
                 else: room[scenery_object[1] + 1][scenery_object[2] + 1 + i] = 255
             room[scenery_object[1] + 1][scenery_object[2] + 1] = scenery_object[0]
-    for row in room:
-        print(''.join(list(map(str, row))))
     room = [[0 for _ in range(width)] for _ in range(ud_borders)] + room + [[0 for _ in range(width)] for _ in range(ud_borders)]
     for i in range(ROOM_SIZE):
         room[i] = [0 for _ in range(lr_borders)] + room[i] + [0 for _ in range(lr_borders)]
@@ -306,18 +335,12 @@ def generate_rooms(rooms):
 def adjust_wall_transparency():
     global walls
     checked_tiles = {
-        (player_x - 1) * 2 * (player_y - 2) - (player_x - 1)**2: room_map[player_y - 2][player_x - 1],
-        (player_x - 1) * 2 * (player_y - 1) - (player_x - 1)**2: room_map[player_y - 1][player_x - 1],
         (player_x - 1) * 2 * (player_y) - (player_x - 1)**2: room_map[player_y][player_x - 1],
         (player_x - 1) * 2 * (player_y + 1) - (player_x - 1)**2: room_map[player_y + 1][player_x - 1],
         (player_x - 1) * 2 * (player_y + 2) - (player_x - 1)**2: room_map[player_y + 2][player_x - 1],
-        (player_x) * 2 * (player_y - 2) - (player_x)**2: room_map[player_y - 2][player_x],
-        (player_x) * 2 * (player_y - 1) - (player_x)**2: room_map[player_y - 1][player_x],
         (player_x) * 2 * (player_y) - (player_x)**2: room_map[player_y][player_x],
         (player_x) * 2 * (player_y + 1) - (player_x)**2: room_map[player_y + 1][player_x],
         (player_x) * 2 * (player_y + 2) - (player_x)**2: room_map[player_y + 2][player_x],
-        (player_x + 1) * 2 * (player_y - 2) - (player_x)**2: room_map[player_y - 2][player_x + 1],
-        (player_x + 1) * 2 * (player_y - 1) - (player_x + 1)**2: room_map[player_y - 1][player_x + 1],
         (player_x + 1) * 2 * (player_y) - (player_x + 1)**2: room_map[player_y][player_x + 1],
         (player_x + 1) * 2 * (player_y + 1) - (player_x + 1)**2: room_map[player_y + 1][player_x + 1],
         (player_x + 1) * 2 * (player_y + 2) - (player_x + 1)**2: room_map[player_y + 2][player_x + 1],
@@ -326,7 +349,7 @@ def adjust_wall_transparency():
         if v == 3 and walls[k] < 4:
             walls[k] += 1
     for k in list(walls.keys()):
-        if not k in checked_tiles and walls[k] > 0:
+        if not k in list(checked_tiles.keys()) and walls[k] > 0:
             walls[k] -= 1
 
 def open_doors():
@@ -366,10 +389,14 @@ def draw_robot():
     robot_image = ROBOT[robot_direction][robot_moving]
     screen.blit(robot_image, (top_left_x + (robot_x + x_shift + robot_offset_x) * TILE_SIZE, top_left_y + (robot_y + y_shift + robot_offset_y) * TILE_SIZE - robot_image.get_height()))
 
+##################
+### PAUSE MENU ###
+##################
+
+
 ###############
 ### CHATBOT ###
 ###############
-
 def on_key_up(key, mod):
     global player_speaking, player_text
     key_id = str(key)[str(key).index(".") + 1:]
@@ -433,7 +460,6 @@ def end_player_message(): # When the player is done typing, close the popup. If 
 def get_reply(text):
     robot_reply = get_answer(text)
     display_robot_reply(robot_reply)
-    print(robot_reply)
 
 def display_robot_reply(text):
     global robot_speaking, robot_text
@@ -509,8 +535,6 @@ def display_message(text):
     global robot_speaking, robot_text
     robot_speaking = True
     robot_text = text
-    print(text)
-
 def end_message():
     global robot_speaking
     robot_speaking = False
@@ -527,6 +551,10 @@ def game_loop():
     global robot_x, robot_y
     global robot_moving
     global robot_offset_x, robot_offset_y
+    if mute:
+        music.pause()
+    if not mute:
+        music.unpause()
 
     current_room = player_x // ROOM_SIZE + (player_y // ROOM_SIZE) * 3
     if player_frame > 0:
@@ -546,18 +574,18 @@ def game_loop():
 
 # move if key is pressed
     if player_frame == 0:
-        if keyboard.right or keyboard.d:
-            from_player_x = player_x
-            from_player_y = player_y
-            player_x += 1
-            player_direction = "right"
-            player_frame = 1
-            update_robot_pos(old_player_x, old_player_y)
-        elif keyboard.left or keyboard.a: #elif stops player making diagonal movements
+        if keyboard.left or keyboard.a: 
             from_player_x = player_x
             from_player_y = player_y
             player_x -= 1
             player_direction = "left"
+            player_frame = 1
+            update_robot_pos(old_player_x, old_player_y)
+        elif keyboard.right or keyboard.d: #elif stops player making diagonal movements
+            from_player_x = player_x
+            from_player_y = player_y
+            player_x += 1
+            player_direction = "right"
             player_frame = 1
             update_robot_pos(old_player_x, old_player_y)
         elif keyboard.up or keyboard.w:
@@ -652,20 +680,21 @@ try:
 except:
     STARTED = False
 
+if not mute:
+    music.play(random.choice(MUSIC_CHOICES))
 if not STARTED:
     clock.unschedule(robot_interactions)
     display_message(f"Hi! I'm {ROBOT_NAME}, your AI companion (and last functioning robot) aboard the {SHIP_NAME}. If you need any help, just face what you want to find out more about and press 'T'. If you want to chat, just press 'C'. Now, use WASD or the arrow keys to move!")
     clock.schedule_unique(end_message, 20.0)
     STARTED = True
 room_map = generate_rooms(ROOMS)
-#for row in room_map:
-    #print("".join(list(map(str, row))))
 for y in range(len(room_map)):
     for x in range(len(room_map[y])):
         if room_map[y][x] == 5:
-            doors[2 * x * y - x**2] = 0
+            doors[2 * x * y - x**2] = 0 
         if room_map[y][x] == 3:
             walls[2 * x * y - x**2] = 0
+        # the 2 * x * y - x**2 allows me to keep track of where the object is, for a unique key. (x + y would not work as that would cause (2, 3) to function trigger for (3, 2))
 clock.schedule_interval(game_loop, 0.02)
 clock.schedule_interval(adjust_wall_transparency, 0.05)
 clock.schedule_interval(open_doors, 0.05)
