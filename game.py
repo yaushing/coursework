@@ -29,6 +29,7 @@ doors = {}
 walls = {}
 paused = False
 mute = False
+old_click = False
 
 ########################
 ### PLAYER VARIABLES ###
@@ -392,14 +393,33 @@ def draw_robot():
 ##################
 ### PAUSE MENU ###
 ##################
+def pause_loop():
+    global old_click
+    if not paused: return
+    clicked = any(pygame.mouse.get_pressed())
+    if clicked and not old_click:
+        mouse_x = pygame.mouse.get_pos()[0] // 30
+        mouse_y = pygame.mouse.get_pos()[1] // 30
+        print(pygame.mouse.get_pressed())
+        print(f"Clicked at position {pygame.mouse.get_pos()}, tile {mouse_x, mouse_y}")
+    old_click = clicked
+
 
 
 ###############
 ### CHATBOT ###
 ###############
 def on_key_up(key, mod):
-    global player_speaking, player_text
+    global player_speaking, player_text, paused
     key_id = str(key)[str(key).index(".") + 1:]
+    if not paused and key_id == "ESCAPE":
+        clock.unschedule(robot_interactions)
+        clock.unschedule(game_loop)
+        paused = True
+    elif paused and key_id == "ESCAPE":
+        clock.schedule_interval(game_loop, 0.02)
+        clock.schedule_interval(robot_interactions, 0.05)
+        paused = False
     if not player_speaking and key_id == "C": # If the chatbot hasn't started, start the chatbot, pausing the gameloop and other interactions
         clock.unschedule(robot_interactions)
         clock.unschedule(game_loop)
@@ -530,6 +550,11 @@ def draw():
         screen.draw.text("You", (60, 670), color="black", fontname="biorhyme", width=780, lineheight=1)
         screen.draw.text(player_text, (60, 700), color="black", fontname="biorhyme", width=780, lineheight=1, fontsize = 15)
         screen.blit(images.player_text, (30, 600))
+    if paused:
+        s = pygame.Surface((WIDTH, HEIGHT))
+        s.set_alpha(128)
+        s.fill((0, 0, 0))  # the size of your rect
+        screen.blit(s, (0,0)) 
 
 def display_message(text):
     global robot_speaking, robot_text
@@ -555,7 +580,6 @@ def game_loop():
         music.pause()
     if not mute:
         music.unpause()
-
     current_room = player_x // ROOM_SIZE + (player_y // ROOM_SIZE) * 3
     if player_frame > 0:
         player_frame += 1
@@ -699,4 +723,5 @@ clock.schedule_interval(game_loop, 0.02)
 clock.schedule_interval(adjust_wall_transparency, 0.05)
 clock.schedule_interval(open_doors, 0.05)
 clock.schedule_interval(robot_interactions, 0.05)
+clock.schedule_interval(pause_loop, 0.05)
 pgzrun.go()
