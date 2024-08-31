@@ -402,9 +402,7 @@ def pause_loop():
         mouse_y = pygame.mouse.get_pos()[1] // 30
         print(pygame.mouse.get_pressed())
         print(f"Clicked at position {pygame.mouse.get_pos()}, tile {mouse_x, mouse_y}")
-    old_click = clicked
-
-
+    old_click = clicked    
 
 ###############
 ### CHATBOT ###
@@ -523,7 +521,6 @@ def draw():
                 if item_here == 5:
                     image = OBJECTS[item_here][0][doors[2 * x * y - x**2]]
                 draw_image(image, y, x) 
-
                 if OBJECTS[item_here][1] is not None and room_map[y + 1][x] != 0: # If object has a shadow, and the tile below it is not space
                     shadow_image = OBJECTS[item_here][1]
                     if item_here == 5:
@@ -551,10 +548,10 @@ def draw():
         screen.draw.text(player_text, (60, 700), color="black", fontname="biorhyme", width=780, lineheight=1, fontsize = 15)
         screen.blit(images.player_text, (30, 600))
     if paused:
-        s = pygame.Surface((WIDTH, HEIGHT))
-        s.set_alpha(128)
-        s.fill((0, 0, 0))  # the size of your rect
-        screen.blit(s, (0,0)) 
+        s = pygame.Surface((WIDTH, HEIGHT)) # Creates a surface the height and width of the window
+        s.set_alpha(128) # To create a semi-opaque overlay
+        s.fill((0, 0, 0)) # Makes the overlay black (rgba(0, 0, 0, 128))
+        screen.blit(s, (0,0)) # Blits the surface onto the screen
 
 def display_message(text):
     global robot_speaking, robot_text
