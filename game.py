@@ -1,23 +1,44 @@
-from chatterbot import ChatBot
-from chatterbot.trainers import ListTrainer
-import re
-import pgzrun, pygame
-import time, random, math
-import pickle
+###############
+### IMPORTS ###
+###############
+try:
+    from chatterbot import ChatBot
+    from chatterbot.trainers import ListTrainer
+except: raise ModuleNotFoundError('Could not find required module {chatterbot}. Try re-running the install command.')
+try: import pgzrun, pygame
+except: raise ModuleNotFoundError('Could not find required module {pygame}. Try re-running the install command.')
+try: from matplotlib import pyplot as plt
+except: raise ModuleNotFoundError('Could not find required module {matplotlib}. Try re-running the install command.')
+try:
+    import time, random, math, re, warnings, pickle, os
+    from datetime import date
+except: raise ModuleNotFoundError('Could not find built-in modules. Try re-installing python 3.9.12')
+try:
+    import nltk
+    from nltk.sentiment.vader import SentimentIntensityAnalyzer
+    from nltk.corpus import stopwords
+    from nltk.tokenize import word_tokenize
+    from nltk.stem import WordNetLemmatizer
+except: warnings.warn('Could not find built-in nltk sentiment analysis tools. App will run, but mood charts will not be generated.')
+
 #################
-### VARIABLES ###
+### CONSTANTS ###
 #################
 WIDTH = 900 # Window size
 HEIGHT = 800
 TILE_SIZE = 30 # Size of each tile
 ROOM_SIZE = 20
 ROOM_MAP_WIDTH = 3 # Number of rooms in the map (left to right)
-ROOM_MAP_HEIGHT = 4 # Number of rooms in the map (top to bottom)
+ROOM_MAP_HEIGHT = 3 # Number of rooms in the map (top to bottom)
 SHIFTED = list(")!@#$%^&*(") # Used for keyboard typing
 ROBOT_NAME = "Vimal"
 SHIP_NAME = "Jolene"
 CHAT_DATA = "chat.txt"
 MUSIC_CHOICES = ['kisstherain', 'merrygoroundoflife']
+
+#################
+### VARIABLES ###
+#################
 top_left_x = 0 
 top_left_y = 60 # Shifts room down so that the top-most pillar is visible
 x_shift, y_shift = 0, 0 # Shifts rooms in relation to player (player stays in the centre of the screen)
@@ -30,6 +51,11 @@ walls = {}
 paused = False
 mute = False
 old_click = False
+mood_hist = {}
+displaying_chart = False
+modal = False
+modal_text = ""
+delete_data = False
 
 ########################
 ### PLAYER VARIABLES ###
@@ -59,7 +85,7 @@ player_direction = "up" # The direction the player is facing
 player_frame = 0 # Frame of animation
 player_image = PLAYER[player_direction][player_frame] # Image of the player
 player_offset_x, player_offset_y = 0, 0 # Player offset to fit animations and movement along the x and y axis (0.25 offset, frame 1, 0.5 offset, frame 2... 1 offset = x += 1, frame 0 again)
-player_x, player_y = 30, 49 # Player position in relation to environment
+player_x, player_y = 30, 30 # Player position in relation to environment
 current_room = 0 # The room the player is in
 
 PLAYER_SHADOW = {
@@ -141,8 +167,10 @@ OBJECTS = {
     40: [images.drone, None, "a delivery drone", "They used to whizz through the corridors like nobody's business."],
     41: [images.computer, images.computer_shadow, "a computer workstation", "Used for managing space station systems."],
     42: [images.map, images.full_shadow, "a map charting the path of the ship.", "It's very in-depth."],
+    43: [images.bottomfence, None, "a fence.", "It stops you from walking onto the crops"],
+    44: [images.topfence, None, "a fence.", "It stops you from walking onto the crops"],
     255: [images.floor, None, "the floor.", "It's shiny and clean."],
-    256: [images.floor, None, "the floor.", "It's shiny and clean."],
+    256: [images.floor, None, "the floor.", "It's shiny and clean."]
 }
 
 # Special tiles:
@@ -154,29 +182,29 @@ OBJECTS = {
 ### ROOMS ###
 #############
 ROOMS = [
-    [0, 0, False, False, False, False, "", ""],
-    [14, 10, False, False, False, True, "the bridge.", "You used to be able to control your ship from here..."],
-    [0, 0, False, False, False, False, "", ""],
-    [4, 4, False, True, False, True, "an access corridor.", "Why would you come from here?"],
-    [12, 10, True, True, True, True, "mission control.", "Back when comms worked, we could talk to Earth from here..."],
-    [4, 4, True, False, False, True, "an access corridor.", "How did you get here?"],
-    [16, 16, False, True, True, True, "the lab.", "The other astronauts used to run their experiments here."],
-    [18, 18, True, True, True, True, "the one and only lounging area in the entire spaceship.", "It's pretty nice!"],
-    [16, 16, True, False, True, True, "the garden.", "The plants grow here. Tomatoes grow surprisingly well!"],
+    # [width, height, left exit, right exit, top exit, bottom exit, title, description.]
+    [14, 10, False, False, False, True, "BETA", "BETABETA"],
+    [0, 0, False, False, False, False, "space.", "As a developer, please tell me how you got out so I can patch this."],
+    [14, 10, False, False, False, True, "mission control.", "Back when comms worked, we could talk to Earth from here..."],
+    [4, 4, False, True, True, True, "an access corridor.", "How did you get here?"],
+    [18, 18, True, True, False, False, "the one and only lounging area in the entire spaceship.", "It's pretty nice!"],
+    [4, 4, True, False, True, True, "an access corridor.", "How did you get here?"],
     [14, 10, False, False, True, False, "the dorm.", "All the astronauts used to stay here at night."],
-    [10, 10, False, False, True, False, "the toilet.", "Also, the only one."],
-    [14, 10, False, False, True, False, "the life support system.", ""],
+    [0, 0, False, False, False, False, "space.", "As a developer, please tell me how you got out so I can patch this."],
+    [14, 10, False, False, True, False, "the garden.", "The plants grow here. Tomatoes grow surprisingly well!"]
 ]
 
 ###############
 ### SCENERY ###
 ###############
 
+# Screnery:
+# [[item, y, x]]
 SCENERY = {
-    1: [[35, -1, 0], [41, 1, 3], [41, 1, 7] ,[15, 3, 0], [15, 3, 3], [15, 3, 7], [15, 3, 10], [15, 6, 0], [15, 6, 3], [15, 6, 7], [15, 6, 10]],
-    4: [[33, 2, 0], [33, 2, 6], [33, 5, 0], [33, 5, 6]],
-    9: [[7, 0, 0], [14, 0, 2], [7, 0, 3], [8, 0, 7], [14, 0, 9], [8, 0, 10], [7, 2, 0], [14, 2, 2], [7, 2, 3], [8, 2, 7], [14, 2, 9], [8, 2, 10], [7, 5, 0], [14, 5, 2], [7, 5, 3], [8, 5, 7], [14, 5, 9], [8, 5, 10], [7, 7, 0], [14, 7, 2], [7, 7, 3], [8, 7, 7], [14, 7, 9], [8, 7, 10], [35, 8, 0]],
-    6: [[12, 0, 0], [13, 0, 1], [13, 0, 2], [25, 0, 10], [26, 2, 3], [11, 5, 2], [10, 5, 11], [30, 5, 3], [11, 9, 2], [10, 9, 11], [30, 9, 3], [26, 10, 3]]
+    0: [[35, -1, 0]],
+    2: [[35, -1, 0]],
+    6: [[7, 0, 0], [14, 0, 2], [7, 0, 3], [8, 0, 7], [14, 0, 9], [8, 0, 10], [7, 2, 0], [14, 2, 2], [7, 2, 3], [8, 2, 7], [14, 2, 9], [8, 2, 10], [7, 5, 0], [14, 5, 2], [7, 5, 3], [8, 5, 7], [14, 5, 9], [8, 5, 10], [7, 7, 0], [14, 7, 2], [7, 7, 3], [8, 7, 7], [14, 7, 9], [8, 7, 10], [35, 8, 0]],
+    8: [[35, 8, 0], [4, 1, 1], [4, 1, 2], [4, 1, 3], [4, 1, 4], [4, 1, 7], [4, 1, 8], [4, 1, 9], [4, 1, 10], [4, 2, 1], [4, 2, 2], [4, 2, 3], [4, 2, 4], [4, 2, 7], [4, 2, 8], [4, 2, 9], [4, 2, 10], [4, 4, 1], [4, 4, 2], [4, 4, 3], [4, 4, 4], [4, 4, 7], [4, 4, 8], [4, 4, 9], [4, 4, 10], [4, 5, 1], [4, 5, 2], [4, 5, 3], [4, 5, 4], [4, 5, 7], [4, 5, 8], [4, 5, 9], [4, 5, 10], [43, 6, 1], [43, 6, 2], [43, 6, 3], [43, 6, 4], [43, 6, 7], [43, 6, 8], [43, 6, 9], [43, 6, 10], [44, 0, 1], [44, 0, 2], [44, 0, 3], [44, 0, 4], [44, 0, 7], [44, 0, 7], [44, 0, 8], [44, 0, 9], [44, 0, 10], [43, 3, 1], [43, 3, 2], [43, 3, 3], [43, 3, 4], [43, 3, 7], [43, 3, 8], [43, 3, 9], [43, 3, 10], [43, 3, 1], [43, 3, 2], [43, 3, 3], [43, 3, 4], [43, 3, 7], [43, 3, 8], [43, 3, 9], [43, 3, 10]]
 }
 
 checksum = 0
@@ -187,10 +215,13 @@ for key, room_scenery_list in SCENERY.items():
                      + scenery_item_list[1] * (key + 1) 
                      + scenery_item_list[2] * (key + 2))
         check_counter += 1
-assert check_counter == 52, f"Expected 52 scenery items, got {check_counter}."
-assert checksum == 7906, f"Expected checksum of 7906, got {checksum}."
 
-items_player_may_stand_on = [1, 4, 5, 256]
+assert check_counter == 93, f"Expected 93 scenery items, got {check_counter}."
+assert checksum == 21422, f"Expected checksum of 21422, got {checksum}."
+
+
+ITEMS_PLAYER_MAY_STAND_ON = [1, 5, 34, 43, 44, 45, 46, 256]
+ITEMS_PLAYER_MAY_INTERACT_WITH = [15, 33, 41]
 
 ########################
 ### CHATBOT TRAINING ###
@@ -213,16 +244,12 @@ def remove_non_message_text(export_text_lines):
     filter_out_msgs = ("<Media omitted>",)
     return tuple((msg for msg in messages if msg not in filter_out_msgs))
 
-chatbot = ChatBot("Chatpot")
-trainer = ListTrainer(chatbot)
-cleaned_data = remove_non_message_text(remove_chat_metadata(CHAT_DATA))
-trainer.train(cleaned_data)
 def get_answer(query):
     return chatbot.get_response(query)
+
 ################
 ### MAKE MAP ###
 ################
-
 def create_room(room_number, width, height, left=False, right=False, up=False, down=False):
     ### Validations
     assert 0 <= room_number <= ROOM_MAP_HEIGHT * ROOM_MAP_WIDTH, f"Room number is invalid. Expected 0 ≤ room number ≤ {ROOM_MAP_HEIGHT * ROOM_MAP_WIDTH - 1}, got {room_number}"
@@ -330,11 +357,12 @@ def generate_rooms(rooms):
     for i in range(len(final)):
         assert len(final[i]) == ROOM_MAP_WIDTH * ROOM_SIZE, f"Expected width of row {i} to be {ROOM_MAP_WIDTH * ROOM_SIZE}, got {len(final[i])}" 
         trans_wall_count += final[i].count(3)
-    assert trans_wall_count == 96, f"Expected 96 transparent walls, got {trans_wall_count}."
+    assert trans_wall_count == 50, f"Expected 50 transparent walls, got {trans_wall_count}."
     return final
 
 def adjust_wall_transparency():
     global walls
+    # Basically a key
     checked_tiles = {
         (player_x - 1) * 2 * (player_y) - (player_x - 1)**2: room_map[player_y][player_x - 1],
         (player_x - 1) * 2 * (player_y + 1) - (player_x - 1)**2: room_map[player_y + 1][player_x - 1],
@@ -394,14 +422,39 @@ def draw_robot():
 ### PAUSE MENU ###
 ##################
 def pause_loop():
-    global old_click
-    if not paused: return
+    global old_click, mute, paused, modal, modal_text, delete_data
     clicked = any(pygame.mouse.get_pressed())
     if clicked and not old_click:
-        mouse_x = pygame.mouse.get_pos()[0] // 30
-        mouse_y = pygame.mouse.get_pos()[1] // 30
+        mouse_x = pygame.mouse.get_pos()[0]
+        mouse_y = pygame.mouse.get_pos()[1]
         print(pygame.mouse.get_pressed())
-        print(f"Clicked at position {pygame.mouse.get_pos()}, tile {mouse_x, mouse_y}")
+        #print(f"Clicked at position {pygame.mouse.get_pos()}")
+        if not modal:
+            if 270 <= mouse_x <= 630 and 250 <= mouse_y <= 340:
+                clock.schedule_interval(game_loop, 0.02)
+                clock.schedule_interval(robot_interactions, 0.05)
+                paused = False
+            if 270 <= mouse_x <= 630 and 390 <= mouse_y <= 480:
+                modal = True
+                modal_text = "Are you sure you want to quit?"
+            if 270 <= mouse_x <= 360 and 530 <= mouse_y <= 620: 
+                mute = not mute
+                if mute: music.pause()
+                else: music.unpause()
+            if 540 <= mouse_x <= 630 and 530 <= mouse_y <= 620: 
+                modal = True
+                modal_text = "Are you sure you want to delete all your save files? The game will automatically stop after you confirm."
+                delete_data = True
+        else:
+            if 285 <= mouse_x <= 465 and 480 <= mouse_y <= 570:  
+                if delete_data:
+                    try:
+                        os.remove("savefile.dat")
+                        os.remove("db.sqlite3")
+                    except: pass
+                exit()
+            if 435 <= mouse_x <= 615 and 480 <= mouse_y <= 570: 
+                modal = False
     old_click = clicked    
 
 ###############
@@ -422,7 +475,7 @@ def on_key_up(key, mod):
         clock.unschedule(robot_interactions)
         clock.unschedule(game_loop)
         start_chatbot()
-    else: # Typing
+    if player_speaking: # Typing
         if len(key_id) == 1: 
             if mod: player_text += key_id
             else: player_text += key_id.lower()
@@ -467,13 +520,31 @@ def on_key_up(key, mod):
         if key_id == "RETURN": end_player_message()
 
 def end_player_message(): # When the player is done typing, close the popup. If the player_text is an exit query (currently only :q), stop the chatbot and resume game parts. Else, get the reply from the chatbot
-    global player_speaking
+    global player_speaking, mood_hist
     player_speaking = False
     if player_text == ":q": 
         clock.schedule_interval(robot_interactions, 0.05)
         clock.schedule_interval(game_loop, 0.02)
         pass
-    else: get_reply(player_text)
+    elif player_text == "/p_debug":
+        clock.unschedule(robot_interactions)
+        clock.unschedule(game_loop)
+        mood_to_disp = [sum(mood_hist[i])/(len(mood_hist[i]) - mood_hist[i].count(0)) for i in mood_hist.keys()]
+        plt.plot(list(mood_hist.keys()), mood_to_disp, marker='x')
+        plt.xlabel('Date')
+        plt.ylabel('Mood')
+        plt.title('Mood chart')
+        plt.grid(True)
+        plt.ylim(-1.1, 1.1)
+        plt.plot(list(mood_hist.keys()), [0 for _ in range(len(mood_hist))], color="lightgray", linestyle="--", label="Baseline")
+        plt.savefig("images/moodchart.png")
+        clock.schedule_interval(game_loop, 0.02)
+        clock.schedule_interval(robot_interactions, 0.05)
+    else: 
+        if date.today() in mood_hist: mood_hist[date.today()].append(get_sentiment(player_text))
+        else: mood_hist[date.today()] = [get_sentiment(player_text)]
+        print(mood_hist)
+        get_reply(player_text)
 
 def get_reply(text):
     robot_reply = get_answer(text)
@@ -499,6 +570,56 @@ def start_chatbot():
     clock.unschedule(robot_interactions)
     get_player_text()
 
+####################
+### MOOD CHARTS ###
+###################
+def preprocess_text(text):
+    tokens = word_tokenize(text.lower())
+    filtered = [token for token in tokens if token not in stopwords.words('english')]
+    lemmatizer = WordNetLemmatizer()
+    lemmatized_tokens = [lemmatizer.lemmatize(token) for token in filtered]
+    processed_text = ' '.join(lemmatized_tokens)
+    print(tokens, filtered, lemmatized_tokens, processed_text)
+    return processed_text
+
+def get_sentiment(text):
+    processed = preprocess_text(text)
+    scores = SentimentIntensityAnalyzer().polarity_scores(text)
+    return scores['compound']
+
+def player_interact():
+    global displaying_chart
+    if player_direction == "right":
+        facing = room_map[player_y][player_x + 1]
+        checked = player_y, player_x + 1
+    elif player_direction == "left":
+        facing = room_map[player_y][player_x - 1]
+        checked = player_y, player_x - 1
+    elif player_direction == "up":
+        facing = room_map[player_y - 1][player_x]
+        checked = player_y - 1, player_x
+    else:
+        facing = room_map[player_y + 1][player_x]
+        checked = player_y + 1, player_x
+    checking_x_shift = 0
+    while facing == 255 or facing == 0 or facing == 256:
+        facing = room_map[checked[0]][checked[1] - checking_x_shift]
+        checking_x_shift += 1
+    if facing in ITEMS_PLAYER_MAY_INTERACT_WITH:
+        clock.unschedule(robot_interactions)
+        clock.unschedule(game_loop)
+        mood_to_disp = [sum(mood_hist[i])/(len(mood_hist[i]) - mood_hist[i].count(0)) for i in mood_hist.keys()]
+        plt.plot(list(mood_hist.keys()), mood_to_disp, marker='x', color="blue", label="Mood")
+        plt.xlabel('Date')
+        plt.ylabel('Mood')
+        plt.title('Mood chart')
+        plt.grid(True)
+        plt.ylim(-1.1, 1.1)
+        plt.plot(list(mood_hist.keys()), [0 for _ in range(len(mood_hist))], color="lightgray", linestyle="--", label="Baseline")
+        plt.savefig("images/moodchart.png")
+        displaying_chart = True
+    else:
+        pass
 ########################
 #### MAIN GAME LOOPS ###
 ########################
@@ -506,15 +627,15 @@ def draw():
     screen.blit(images.backdrop, (0 + min(x_shift, 0), 0 + min(y_shift, 0)))
     for y in range(ROOM_MAP_HEIGHT * ROOM_SIZE): 
         for x in range(ROOM_MAP_WIDTH * ROOM_SIZE):
-            if room_map[y][x] in items_player_may_stand_on and not room_map[y][x] == 5:
+            if room_map[y][x] in ITEMS_PLAYER_MAY_STAND_ON and not room_map[y][x] == 5:
                 draw_image(OBJECTS[room_map[y][x]][0], y, x)
-            if room_map[y][x] != 0 and room_map[y][x] != 4:
+            if room_map[y][x] not in [0, 4]:
                 draw_image(OBJECTS[1][0], y, x)
     for y in range(ROOM_MAP_HEIGHT * ROOM_SIZE):
         for x in range(ROOM_MAP_WIDTH * ROOM_SIZE):
             item_here = room_map[y][x]
             # Player cannot walk on 255: it marks spaces used by wide objects.
-            if item_here not in items_player_may_stand_on + [255] or item_here == 5:
+            if item_here not in ITEMS_PLAYER_MAY_STAND_ON + [255] or item_here in [5, 43, 45, 46]:
                 image = OBJECTS[item_here][0]
                 if item_here == 3:
                     image = OBJECTS[item_here][0][walls[2 * x * y - x**2]]
@@ -537,6 +658,12 @@ def draw():
             draw_robot()
         if (player_y == y):
             draw_player()
+    for y in range(ROOM_MAP_HEIGHT * ROOM_SIZE):
+        for x in range(ROOM_MAP_WIDTH * ROOM_SIZE):
+            if (room_map[y][x] == 43 and y == 49) or room_map[y][x] == 44:
+                image = OBJECTS[44][0]
+                draw_image(image, y, x) 
+                
     if robot_speaking:
         screen.blit(images.textbox, (30, 650))
         screen.draw.text(f"{ROBOT_NAME}", (60, 670), color="black", fontname="biorhyme", width=780, lineheight=1)
@@ -552,6 +679,31 @@ def draw():
         s.set_alpha(128) # To create a semi-opaque overlay
         s.fill((0, 0, 0)) # Makes the overlay black (rgba(0, 0, 0, 128))
         screen.blit(s, (0,0)) # Blits the surface onto the screen
+        mouse_x = pygame.mouse.get_pos()[0]
+        mouse_y = pygame.mouse.get_pos()[1]
+        screen.blit(images.pausesign, (230, 50))
+        if 270 <= mouse_x <= 630 and 250 <= mouse_y <= 340 and not modal: screen.blit(images.maincontinuehover, (270, 250))
+        else: screen.blit(images.maincontinue, (270, 250))
+        if 270 <= mouse_x <= 630 and 390 <= mouse_y <= 480 and not modal: screen.blit(images.mainquithover, (270, 390))
+        else: screen.blit(images.mainquit, (270, 390))
+        if not mute:
+            if 270 <= mouse_x <= 360 and 530 <= mouse_y <= 620 and not modal: screen.blit(images.mutehover, (270, 530))
+            else: screen.blit(images.mute, (270, 530))
+        else:
+            if 270 <= mouse_x <= 360 and 530 <= mouse_y <= 620 and not modal: screen.blit(images.unmutehover, (270, 530))
+            else: screen.blit(images.unmute, (270, 530))
+        if 540 <= mouse_x <= 630 and 530 <= mouse_y <= 620 and not modal: screen.blit(images.deldatahover, (540, 530))
+        else: screen.blit(images.deldata, (540, 530))
+    if modal:
+        screen.blit(images.modal, (270, 315))
+        screen.draw.text("Warning", (285, 325), color="black", fontname="biorhyme", width=330, lineheight=1, fontsize = 30)
+        screen.draw.text(modal_text, (285, 360), color="black", fontname="biorhyme", width=330, lineheight=1, fontsize = 20)
+        if 285 <= mouse_x <= 465 and 480 <= mouse_y <= 570: screen.blit(images.modalcontinuehover, (285, 480))
+        else: screen.blit(images.modalcontinue, (285, 480)) 
+        if 435 <= mouse_x <= 615 and 480 <= mouse_y <= 570: screen.blit(images.modalcancelhover, (435, 480))
+        else: screen.blit(images.modalcancel, (435, 480)) 
+    if displaying_chart:
+        screen.blit(images.moodchart, (110, 190))
 
 def display_message(text):
     global robot_speaking, robot_text
@@ -573,6 +725,8 @@ def game_loop():
     global robot_x, robot_y
     global robot_moving
     global robot_offset_x, robot_offset_y
+    if keyboard.e:
+        player_interact()
     if mute:
         music.pause()
     if not mute:
@@ -623,7 +777,7 @@ def game_loop():
             player_direction = "down"
             player_frame = 1
             update_robot_pos(old_player_x, old_player_y)
-    if room_map[player_y][player_x] not in items_player_may_stand_on:
+    if room_map[player_y][player_x] not in ITEMS_PLAYER_MAY_STAND_ON:
         player_x = old_player_x
         player_y = old_player_y
         player_frame = 0
@@ -645,7 +799,7 @@ def game_loop():
         robot_offset_y = -1 + (0.25 * player_frame)
     x_shift, y_shift = - (player_x + player_offset_x - 15), -(player_y + player_offset_y - 15)
     with open('savefile.dat', 'wb') as f:
-        pickle.dump([STARTED, player_x, player_y, x_shift, y_shift, robot_x, robot_y, player_direction, robot_direction], f, protocol=2)
+        pickle.dump([started, player_x, player_y, x_shift, y_shift, robot_x, robot_y, player_direction, robot_direction, mood_hist], f, protocol=2)
 
 def robot_interactions():
     global robot_speaking
@@ -697,17 +851,21 @@ def display_help_message():
 #############
 try:
     with open('savefile.dat', 'rb') as f:
-        STARTED, player_x, player_y, x_shift, y_shift, robot_x, robot_y, player_direction, robot_direction = pickle.load(f)
+        started, player_x, player_y, x_shift, y_shift, robot_x, robot_y, player_direction, robot_direction, mood_hist = pickle.load(f)
 except:
-    STARTED = False
-
+    started = False
 if not mute:
     music.play(random.choice(MUSIC_CHOICES))
-if not STARTED:
+print(started)
+if not started:
     clock.unschedule(robot_interactions)
     display_message(f"Hi! I'm {ROBOT_NAME}, your AI companion (and last functioning robot) aboard the {SHIP_NAME}. If you need any help, just face what you want to find out more about and press 'T'. If you want to chat, just press 'C'. Now, use WASD or the arrow keys to move!")
     clock.schedule_unique(end_message, 20.0)
-    STARTED = True
+    started = True
+chatbot = ChatBot(ROBOT_NAME)
+trainer = ListTrainer(chatbot)
+cleaned_data = remove_non_message_text(remove_chat_metadata(CHAT_DATA))
+trainer.train(cleaned_data)
 room_map = generate_rooms(ROOMS)
 for y in range(len(room_map)):
     for x in range(len(room_map[y])):
@@ -717,8 +875,8 @@ for y in range(len(room_map)):
             walls[2 * x * y - x**2] = 0
         # the 2 * x * y - x**2 allows me to keep track of where the object is, for a unique key. (x + y would not work as that would cause (2, 3) to function trigger for (3, 2))
 clock.schedule_interval(game_loop, 0.02)
+clock.schedule_interval(robot_interactions, 0.05)
 clock.schedule_interval(adjust_wall_transparency, 0.05)
 clock.schedule_interval(open_doors, 0.05)
-clock.schedule_interval(robot_interactions, 0.05)
 clock.schedule_interval(pause_loop, 0.05)
 pgzrun.go()

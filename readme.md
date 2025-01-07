@@ -11,4 +11,5 @@ External libraries used:
 9. Numpy
 10. Pgzero
 11. Pygame
+12. Matplotlib
 Run on python 3.9.12
