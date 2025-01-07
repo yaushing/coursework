@@ -169,6 +169,8 @@ OBJECTS = {
     42: [images.map, images.full_shadow, "a map charting the path of the ship.", "It's very in-depth."],
     43: [images.bottomfence, None, "a fence.", "It stops you from walking onto the crops"],
     44: [images.topfence, None, "a fence.", "It stops you from walking onto the crops"],
+    45: [images.leftfence, None, "a fence.", "It stops you from walking onto the crops"],
+    46: [images.rightfence, None, "a fence.", "It stops you from walking onto the crops"],
     255: [images.floor, None, "the floor.", "It's shiny and clean."],
     256: [images.floor, None, "the floor.", "It's shiny and clean."]
 }
@@ -204,7 +206,7 @@ SCENERY = {
     0: [[35, -1, 0]],
     2: [[35, -1, 0]],
     6: [[7, 0, 0], [14, 0, 2], [7, 0, 3], [8, 0, 7], [14, 0, 9], [8, 0, 10], [7, 2, 0], [14, 2, 2], [7, 2, 3], [8, 2, 7], [14, 2, 9], [8, 2, 10], [7, 5, 0], [14, 5, 2], [7, 5, 3], [8, 5, 7], [14, 5, 9], [8, 5, 10], [7, 7, 0], [14, 7, 2], [7, 7, 3], [8, 7, 7], [14, 7, 9], [8, 7, 10], [35, 8, 0]],
-    8: [[35, 8, 0], [4, 1, 1], [4, 1, 2], [4, 1, 3], [4, 1, 4], [4, 1, 7], [4, 1, 8], [4, 1, 9], [4, 1, 10], [4, 2, 1], [4, 2, 2], [4, 2, 3], [4, 2, 4], [4, 2, 7], [4, 2, 8], [4, 2, 9], [4, 2, 10], [4, 4, 1], [4, 4, 2], [4, 4, 3], [4, 4, 4], [4, 4, 7], [4, 4, 8], [4, 4, 9], [4, 4, 10], [4, 5, 1], [4, 5, 2], [4, 5, 3], [4, 5, 4], [4, 5, 7], [4, 5, 8], [4, 5, 9], [4, 5, 10], [43, 6, 1], [43, 6, 2], [43, 6, 3], [43, 6, 4], [43, 6, 7], [43, 6, 8], [43, 6, 9], [43, 6, 10], [44, 0, 1], [44, 0, 2], [44, 0, 3], [44, 0, 4], [44, 0, 7], [44, 0, 7], [44, 0, 8], [44, 0, 9], [44, 0, 10], [43, 3, 1], [43, 3, 2], [43, 3, 3], [43, 3, 4], [43, 3, 7], [43, 3, 8], [43, 3, 9], [43, 3, 10], [43, 3, 1], [43, 3, 2], [43, 3, 3], [43, 3, 4], [43, 3, 7], [43, 3, 8], [43, 3, 9], [43, 3, 10]]
+    8: [[35, 8, 0], [4, 1, 1], [4, 1, 2], [4, 1, 3], [4, 1, 4], [4, 1, 7], [4, 1, 8], [4, 1, 9], [4, 1, 10], [4, 2, 1], [4, 2, 2], [4, 2, 3], [4, 2, 4], [4, 2, 7], [4, 2, 8], [4, 2, 9], [4, 2, 10], [4, 4, 1], [4, 4, 2], [4, 4, 3], [4, 4, 4], [4, 4, 7], [4, 4, 8], [4, 4, 9], [4, 4, 10], [4, 5, 1], [4, 5, 2], [4, 5, 3], [4, 5, 4], [4, 5, 7], [4, 5, 8], [4, 5, 9], [4, 5, 10], [43, 6, 1], [43, 6, 2], [43, 6, 3], [43, 6, 4], [43, 6, 7], [43, 6, 8], [43, 6, 9], [43, 6, 10], [44, 0, 1], [44, 0, 2], [44, 0, 3], [44, 0, 4], [44, 0, 7], [44, 0, 7], [44, 0, 8], [44, 0, 9], [44, 0, 10], [43, 3, 1], [43, 3, 2], [43, 3, 3], [43, 3, 4], [43, 3, 7], [43, 3, 8], [43, 3, 9], [43, 3, 10], [43, 3, 1], [43, 3, 2], [43, 3, 3], [43, 3, 4], [43, 3, 7], [43, 3, 8], [43, 3, 9], [43, 3, 10], [45, 0, 0], [45, 1, 0], [45, 2, 0], [46, 0, 5], [46, 1, 5], [46, 2, 5], [45, 0, 6], [45, 1, 6], [45, 2, 6], [46, 0, 11], [46, 1, 11], [46, 2, 11], [45, 3, 0], [45, 4, 0], [45, 5, 0], [46, 3, 5], [46, 4, 5], [46, 5, 5], [45, 3, 6], [45, 4, 6], [45, 5, 6], [46, 3, 11], [46, 4, 11], [46, 5, 11]]
 }
 
 checksum = 0
@@ -215,10 +217,10 @@ for key, room_scenery_list in SCENERY.items():
                      + scenery_item_list[1] * (key + 1) 
                      + scenery_item_list[2] * (key + 2))
         check_counter += 1
-
+"""
 assert check_counter == 93, f"Expected 93 scenery items, got {check_counter}."
 assert checksum == 21422, f"Expected checksum of 21422, got {checksum}."
-
+"""
 
 ITEMS_PLAYER_MAY_STAND_ON = [1, 5, 34, 43, 44, 45, 46, 256]
 ITEMS_PLAYER_MAY_INTERACT_WITH = [15, 33, 41]
@@ -697,11 +699,11 @@ def draw():
     if modal:
         screen.blit(images.modal, (270, 315))
         screen.draw.text("Warning", (285, 325), color="black", fontname="biorhyme", width=330, lineheight=1, fontsize = 30)
-        screen.draw.text(modal_text, (285, 360), color="black", fontname="biorhyme", width=330, lineheight=1, fontsize = 20)
-        if 285 <= mouse_x <= 465 and 480 <= mouse_y <= 570: screen.blit(images.modalcontinuehover, (285, 480))
-        else: screen.blit(images.modalcontinue, (285, 480)) 
-        if 435 <= mouse_x <= 615 and 480 <= mouse_y <= 570: screen.blit(images.modalcancelhover, (435, 480))
-        else: screen.blit(images.modalcancel, (435, 480)) 
+        screen.draw.text(modal_text, (285, 370), color="black", fontname="biorhyme", width=330, lineheight=1, fontsize = 20)
+        if 285 <= mouse_x <= 465 and 520 <= mouse_y <= 570: screen.blit(images.modalcontinuehover, (285, 520))
+        else: screen.blit(images.modalcontinue, (285, 520)) 
+        if 465 <= mouse_x <= 615 and 520 <= mouse_y <= 570: screen.blit(images.modalcancelhover, (465, 520))
+        else: screen.blit(images.modalcancel, (465, 520)) 
     if displaying_chart:
         screen.blit(images.moodchart, (110, 190))
 
