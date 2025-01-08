@@ -2,13 +2,20 @@
 ### IMPORTS ###
 ###############
 try:
-    from chatterbot import ChatBot
-    from chatterbot.trainers import ListTrainer
-except: raise ModuleNotFoundError('Could not find required module {chatterbot}. Try re-running the install command.')
+    from openai import OpenAI
+except: raise ModuleNotFoundError('Could not find required module {openai}. Try re-running the install command.')
+try:
+    from langgraph.checkpoint.memory import MemorySaver
+    from langgraph.graph import START, MessagesState, StateGraph
+    from langchain_core.messages import HumanMessage, SystemMessage, trim_messages, RemoveMessage
+    from langchain_openai import ChatOpenAI
+except: raise ModuleNotFoundError('Could not find required module {langchain}. Try re-running the install command.')
 try: import pgzrun, pygame
 except: raise ModuleNotFoundError('Could not find required module {pygame}. Try re-running the install command.')
 try: from matplotlib import pyplot as plt
 except: raise ModuleNotFoundError('Could not find required module {matplotlib}. Try re-running the install command.')
+try: import numpy as np
+except: raise ModuleNotFoundError('Could not find required module {numpy}. Try re-running the install command.')
 try:
     import time, random, math, re, warnings, pickle, os
     from datetime import date
@@ -20,6 +27,12 @@ try:
     from nltk.tokenize import word_tokenize
     from nltk.stem import WordNetLemmatizer
 except: warnings.warn('Could not find built-in nltk sentiment analysis tools. App will run, but mood charts will not be generated.')
+try: 
+    import password
+    chatbot_on = True
+except: 
+    warnings.warn('Configuration file for openAI API keys not found. Chatbot will be disabled')
+    chatbot_on = False
 
 #################
 ### CONSTANTS ###
@@ -33,7 +46,6 @@ ROOM_MAP_HEIGHT = 3 # Number of rooms in the map (top to bottom)
 SHIFTED = list(")!@#$%^&*(") # Used for keyboard typing
 ROBOT_NAME = "Vimal"
 SHIP_NAME = "Jolene"
-CHAT_DATA = "chat.txt"
 MUSIC_CHOICES = ['kisstherain', 'merrygoroundoflife']
 
 #################
@@ -56,6 +68,8 @@ displaying_chart = False
 modal = False
 modal_text = ""
 delete_data = False
+future_robot_text = ""
+text_hist = []
 
 ########################
 ### PLAYER VARIABLES ###
@@ -162,8 +176,8 @@ OBJECTS = {
     33: [images.mission_control_desk, images.mission_control_desk_shadow, "computer station connected to Mission Control.", ""],
     34: [images.whiteboard, images.full_shadow, "a whiteboard.", "It used to be used for brainstorming and planning."],
     35: [images.window, images.full_shadow, "a window.", "It allows you to look out at space."],
-    36: [images.robot, images.robot_shadow, "a cleaning robot.", "It's turned off right now to conserve power."],
-    37: [images.robot2, images.robot2_shadow, "a robot for terrestial exploration.", "It's turned off right now to conserve power."],
+    36: [images.window_short, images.full_shadow, "a window", "It allows you to look out at space."],
+    37: [images.robot, images.robot_shadow, "a cleaning robot.", "It's turned off right now to conserve power."],
     40: [images.drone, None, "a delivery drone", "They used to whizz through the corridors like nobody's business."],
     41: [images.computer, images.computer_shadow, "a computer workstation", "Used for managing space station systems."],
     42: [images.map, images.full_shadow, "a map charting the path of the ship.", "It's very in-depth."],
@@ -205,6 +219,7 @@ ROOMS = [
 SCENERY = {
     0: [[35, -1, 0]],
     2: [[35, -1, 0]],
+    4: [[36, -1, 0], [34, -1, 4], [36, -1, 12]],
     6: [[7, 0, 0], [14, 0, 2], [7, 0, 3], [8, 0, 7], [14, 0, 9], [8, 0, 10], [7, 2, 0], [14, 2, 2], [7, 2, 3], [8, 2, 7], [14, 2, 9], [8, 2, 10], [7, 5, 0], [14, 5, 2], [7, 5, 3], [8, 5, 7], [14, 5, 9], [8, 5, 10], [7, 7, 0], [14, 7, 2], [7, 7, 3], [8, 7, 7], [14, 7, 9], [8, 7, 10], [35, 8, 0]],
     8: [[35, 8, 0], [4, 1, 1], [4, 1, 2], [4, 1, 3], [4, 1, 4], [4, 1, 7], [4, 1, 8], [4, 1, 9], [4, 1, 10], [4, 2, 1], [4, 2, 2], [4, 2, 3], [4, 2, 4], [4, 2, 7], [4, 2, 8], [4, 2, 9], [4, 2, 10], [4, 4, 1], [4, 4, 2], [4, 4, 3], [4, 4, 4], [4, 4, 7], [4, 4, 8], [4, 4, 9], [4, 4, 10], [4, 5, 1], [4, 5, 2], [4, 5, 3], [4, 5, 4], [4, 5, 7], [4, 5, 8], [4, 5, 9], [4, 5, 10], [43, 6, 1], [43, 6, 2], [43, 6, 3], [43, 6, 4], [43, 6, 7], [43, 6, 8], [43, 6, 9], [43, 6, 10], [44, 0, 1], [44, 0, 2], [44, 0, 3], [44, 0, 4], [44, 0, 7], [44, 0, 7], [44, 0, 8], [44, 0, 9], [44, 0, 10], [43, 3, 1], [43, 3, 2], [43, 3, 3], [43, 3, 4], [43, 3, 7], [43, 3, 8], [43, 3, 9], [43, 3, 10], [43, 3, 1], [43, 3, 2], [43, 3, 3], [43, 3, 4], [43, 3, 7], [43, 3, 8], [43, 3, 9], [43, 3, 10], [45, 0, 0], [45, 1, 0], [45, 2, 0], [46, 0, 5], [46, 1, 5], [46, 2, 5], [45, 0, 6], [45, 1, 6], [45, 2, 6], [46, 0, 11], [46, 1, 11], [46, 2, 11], [45, 3, 0], [45, 4, 0], [45, 5, 0], [46, 3, 5], [46, 4, 5], [46, 5, 5], [45, 3, 6], [45, 4, 6], [45, 5, 6], [46, 3, 11], [46, 4, 11], [46, 5, 11]]
 }
@@ -225,29 +240,64 @@ assert checksum == 21422, f"Expected checksum of 21422, got {checksum}."
 ITEMS_PLAYER_MAY_STAND_ON = [1, 5, 34, 43, 44, 45, 46, 256]
 ITEMS_PLAYER_MAY_INTERACT_WITH = [15, 33, 41]
 
-########################
-### CHATBOT TRAINING ###
-########################
-def remove_chat_metadata(chat_export_file):
-    date_time = r"(\d+\/\d+\/\d+,\s\d+:\d+)"  # e.g. "9/16/22, 06:34"
-    dash_whitespace = r"\s-\s"  # " - "
-    username = r"([\w\s]+)"  # e.g. "Martin"
-    metadata_end = r":\s"  # ": "
-    pattern = date_time + dash_whitespace + username + metadata_end
+################################
+### LANGCHAIN AND OPENAI API ###
+################################
 
-    with open(chat_export_file, "r") as corpus_file:
-        content = corpus_file.read()
-    cleaned_corpus = re.sub(pattern, "", content)
-    return tuple(cleaned_corpus.split("\n"))
+### Initialize
+model = ChatOpenAI(
+    model = 'gpt-4o-mini', 
+    api_key = password.api_key,
+    temperature = 0.5
+)
 
-def remove_non_message_text(export_text_lines):
-    messages = export_text_lines[1:-1]
+### Prompt template
 
-    filter_out_msgs = ("<Media omitted>",)
-    return tuple((msg for msg in messages if msg not in filter_out_msgs))
+def call_model(state: MessagesState):
+    global text_hist
+    system_prompt = ("Your name is {ROBOT_NAME}, and you are a conselour, who gives emotional support to the user no matter what, and uses quick and concise replies to help your clients. The provided history includes a summary of the earler conversation.")
+    system_message = SystemMessage(content=system_prompt)
+    message_history = state["messages"][:-1]  # exclude the most recent user input
+    text_hist = message_history[:]
+    # Summarize the messages if the chat history reaches a certain size
+    if len(message_history) >= 4:
+        last_human_message = state["messages"][-1]
+        # Invoke the model to generate conversation summary
+        summary_prompt = (
+            "Distill the above chat messages into a single summary message. "
+            "Include as many specific details as you can."
+        )
+        summary_message = model.invoke(
+            message_history + [HumanMessage(content=summary_prompt)]
+        )
+
+        # Delete messages that we no longer want to show up
+        delete_messages = [RemoveMessage(id=m.id) for m in state["messages"]]
+        # Re-add user message
+        human_message = HumanMessage(content=last_human_message.content)
+        # Call the model with summary & response
+        response = model.invoke([system_message, summary_message, human_message])
+        message_updates = [summary_message, human_message, response] + delete_messages
+    else:
+        message_updates = model.invoke([system_message] + state["messages"])
+
+    return {"messages": message_updates}
+
+workflow = StateGraph(state_schema=MessagesState)
+
+# define the (single) node in the graph
+workflow.add_node("model", call_model)
+workflow.add_edge(START, "model")
+memory = MemorySaver()
+app = workflow.compile(checkpointer=memory)
+config = {"configurable": {"thread_id": "1"}}
+
 
 def get_answer(query):
-    return chatbot.get_response(query)
+    output = app.invoke(
+            {"messages": text_hist + [HumanMessage(content=query)]}, config)
+    print(text_hist)
+    return output['messages'][-1].content
 
 ################
 ### MAKE MAP ###
@@ -429,9 +479,9 @@ def pause_loop():
     if clicked and not old_click:
         mouse_x = pygame.mouse.get_pos()[0]
         mouse_y = pygame.mouse.get_pos()[1]
-        print(pygame.mouse.get_pressed())
+        #print(pygame.mouse.get_pressed())
         #print(f"Clicked at position {pygame.mouse.get_pos()}")
-        if not modal:
+        if not modal and paused:
             if 270 <= mouse_x <= 630 and 250 <= mouse_y <= 340:
                 clock.schedule_interval(game_loop, 0.02)
                 clock.schedule_interval(robot_interactions, 0.05)
@@ -447,12 +497,12 @@ def pause_loop():
                 modal = True
                 modal_text = "Are you sure you want to delete all your save files? The game will automatically stop after you confirm."
                 delete_data = True
-        else:
+        elif modal:
             if 285 <= mouse_x <= 465 and 480 <= mouse_y <= 570:  
                 if delete_data:
                     try:
                         os.remove("savefile.dat")
-                        os.remove("db.sqlite3")
+                        os.remove("images/moodchart.png")
                     except: pass
                 exit()
             if 435 <= mouse_x <= 615 and 480 <= mouse_y <= 570: 
@@ -472,8 +522,8 @@ def on_key_up(key, mod):
     elif paused and key_id == "ESCAPE":
         clock.schedule_interval(game_loop, 0.02)
         clock.schedule_interval(robot_interactions, 0.05)
-        paused = False
-    if not player_speaking and key_id == "C": # If the chatbot hasn't started, start the chatbot, pausing the gameloop and other interactions
+        paused = False          
+    if not player_speaking and key_id == "C" and chatbot_on == True: # If the chatbot hasn't started, start the chatbot, pausing the gameloop and other interactions
         clock.unschedule(robot_interactions)
         clock.unschedule(game_loop)
         start_chatbot()
@@ -529,9 +579,7 @@ def end_player_message(): # When the player is done typing, close the popup. If 
         clock.schedule_interval(game_loop, 0.02)
         pass
     elif player_text == "/p_debug":
-        clock.unschedule(robot_interactions)
-        clock.unschedule(game_loop)
-        mood_to_disp = [sum(mood_hist[i])/(len(mood_hist[i]) - mood_hist[i].count(0)) for i in mood_hist.keys()]
+        mood_to_disp = [sum(mood_hist[i])/(len(mood_hist[i])) for i in mood_hist.keys()]
         plt.plot(list(mood_hist.keys()), mood_to_disp, marker='x')
         plt.xlabel('Date')
         plt.ylabel('Mood')
@@ -540,23 +588,36 @@ def end_player_message(): # When the player is done typing, close the popup. If 
         plt.ylim(-1.1, 1.1)
         plt.plot(list(mood_hist.keys()), [0 for _ in range(len(mood_hist))], color="lightgray", linestyle="--", label="Baseline")
         plt.savefig("images/moodchart.png")
-        clock.schedule_interval(game_loop, 0.02)
-        clock.schedule_interval(robot_interactions, 0.05)
     else: 
-        if date.today() in mood_hist: mood_hist[date.today()].append(get_sentiment(player_text))
-        else: mood_hist[date.today()] = [get_sentiment(player_text)]
+        print(get_sentiment(player_text))
+        today_date = np.datetime64(date.today())
+        if today_date not in mood_hist: mood_hist[today_date] = [get_sentiment(player_text)]
+        else: mood_hist[today_date].append(get_sentiment(player_text))
         print(mood_hist)
         get_reply(player_text)
-
 def get_reply(text):
     robot_reply = get_answer(text)
-    display_robot_reply(robot_reply)
+    print(robot_reply)
+    display_robot_message(robot_reply)
 
-def display_robot_reply(text):
-    global robot_speaking, robot_text
+def display_robot_message_cont():
+    global future_robot_text, robot_text
+    split_text = [future_robot_text[i:i+200] for i in range(0, len(future_robot_text), 200)]
+    future_robot_text = ''.join(split_text[1:])
+    if len(split_text) > 0:
+        robot_text = split_text[0]
+        clock.schedule(display_robot_message_cont, round(len(robot_text) * 0.075, 1))
+
+def display_robot_message(text):
+    global robot_speaking, robot_text, future_robot_text
     robot_speaking = True
     robot_text = text
-    clock.schedule_unique(end_robot_message, 5.0)
+    if len(robot_text) > 205:
+        not_yet_done = robot_text[201:]
+        robot_text = robot_text[:201]
+        future_robot_text = not_yet_done
+        clock.schedule(display_robot_message_cont, round(len(robot_text) * 0.075, 1))
+    clock.schedule_unique(end_robot_message, round(len(str(text))*0.075, 1))
 
 def end_robot_message():
     global robot_speaking
@@ -581,7 +642,7 @@ def preprocess_text(text):
     lemmatizer = WordNetLemmatizer()
     lemmatized_tokens = [lemmatizer.lemmatize(token) for token in filtered]
     processed_text = ' '.join(lemmatized_tokens)
-    print(tokens, filtered, lemmatized_tokens, processed_text)
+    #print(tokens, filtered, lemmatized_tokens, processed_text)
     return processed_text
 
 def get_sentiment(text):
@@ -626,12 +687,14 @@ def player_interact():
 #### MAIN GAME LOOPS ###
 ########################
 def draw():
+    mouse_x = pygame.mouse.get_pos()[0]
+    mouse_y = pygame.mouse.get_pos()[1]
     screen.blit(images.backdrop, (0 + min(x_shift, 0), 0 + min(y_shift, 0)))
     for y in range(ROOM_MAP_HEIGHT * ROOM_SIZE): 
         for x in range(ROOM_MAP_WIDTH * ROOM_SIZE):
             if room_map[y][x] in ITEMS_PLAYER_MAY_STAND_ON and not room_map[y][x] == 5:
                 draw_image(OBJECTS[room_map[y][x]][0], y, x)
-            if room_map[y][x] not in [0, 4]:
+            if room_map[y][x] not in [0, 4, 34, 35, 36]:
                 draw_image(OBJECTS[1][0], y, x)
     for y in range(ROOM_MAP_HEIGHT * ROOM_SIZE):
         for x in range(ROOM_MAP_WIDTH * ROOM_SIZE):
@@ -801,7 +864,7 @@ def game_loop():
         robot_offset_y = -1 + (0.25 * player_frame)
     x_shift, y_shift = - (player_x + player_offset_x - 15), -(player_y + player_offset_y - 15)
     with open('savefile.dat', 'wb') as f:
-        pickle.dump([started, player_x, player_y, x_shift, y_shift, robot_x, robot_y, player_direction, robot_direction, mood_hist], f, protocol=2)
+        pickle.dump([started, player_x, player_y, x_shift, y_shift, robot_x, robot_y, player_direction, robot_direction, mood_hist, text_hist], f, protocol=2)
 
 def robot_interactions():
     global robot_speaking
@@ -853,21 +916,16 @@ def display_help_message():
 #############
 try:
     with open('savefile.dat', 'rb') as f:
-        started, player_x, player_y, x_shift, y_shift, robot_x, robot_y, player_direction, robot_direction, mood_hist = pickle.load(f)
+        started, player_x, player_y, x_shift, y_shift, robot_x, robot_y, player_direction, robot_direction, mood_hist, text_hist = pickle.load(f)
 except:
     started = False
 if not mute:
     music.play(random.choice(MUSIC_CHOICES))
-print(started)
 if not started:
     clock.unschedule(robot_interactions)
     display_message(f"Hi! I'm {ROBOT_NAME}, your AI companion (and last functioning robot) aboard the {SHIP_NAME}. If you need any help, just face what you want to find out more about and press 'T'. If you want to chat, just press 'C'. Now, use WASD or the arrow keys to move!")
     clock.schedule_unique(end_message, 20.0)
     started = True
-chatbot = ChatBot(ROBOT_NAME)
-trainer = ListTrainer(chatbot)
-cleaned_data = remove_non_message_text(remove_chat_metadata(CHAT_DATA))
-trainer.train(cleaned_data)
 room_map = generate_rooms(ROOMS)
 for y in range(len(room_map)):
     for x in range(len(room_map[y])):
