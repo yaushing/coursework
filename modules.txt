@@ -1,0 +1,13 @@
+chatterbot
+dateutil
+mathparse
+nltk
+nltk_data
+numpy
+pgzero
+pint
+pygame
+pytz
+regex
+sqlalchemy
+six
