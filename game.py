@@ -2,9 +2,6 @@
 ### IMPORTS ###
 ###############
 try:
-    from openai import OpenAI
-except: raise ModuleNotFoundError('Could not find required module {openai}. Try re-running the install command.')
-try:
     from langgraph.checkpoint.memory import MemorySaver
     from langgraph.graph import START, MessagesState, StateGraph
     from langchain_core.messages import HumanMessage, SystemMessage, trim_messages, RemoveMessage
@@ -12,8 +9,9 @@ try:
 except: raise ModuleNotFoundError('Could not find required module {langchain}. Try re-running the install command.')
 try: import pgzrun, pygame
 except: raise ModuleNotFoundError('Could not find required module {pygame}. Try re-running the install command.')
-try: from matplotlib import pyplot as plt
-except: raise ModuleNotFoundError('Could not find required module {matplotlib}. Try re-running the install command.')
+#try: 
+from matplotlib import pyplot as plt
+#except: raise ModuleNotFoundError('Could not find required module {matplotlib}. Try re-running the install command.')
 try: import numpy as np
 except: raise ModuleNotFoundError('Could not find required module {numpy}. Try re-running the install command.')
 try:
@@ -47,6 +45,10 @@ SHIFTED = list(")!@#$%^&*(") # Used for keyboard typing
 ROBOT_NAME = "Vimal"
 SHIP_NAME = "Jolene"
 MUSIC_CHOICES = ['kisstherain', 'merrygoroundoflife']
+LANGCHAIN_TRACING_V2=True
+LANGCHAIN_ENDPOINT="https://api.smith.langchain.com"
+LANGCHAIN_API_KEY=password.langchainapi
+LANGCHAIN_PROJECT="coursework"
 
 #################
 ### VARIABLES ###
@@ -145,7 +147,7 @@ OBJECTS = {
     0: [images.void, None, "the empty void of space."],
     1: [images.floor, None, "the floor.", "It's shiny and clean."],
     2: [images.pillar, images.full_shadow, "a wall.", "Sterile, and devoid of contamination."],
-    3: [[images.pillar, images.pillar_95, images.pillar_80, images.pillar_60, images.pillar_50], None, "a wall.", "Sterile, and devoid of contamination."],
+    3: [[images.pillar, images.pillar_95, images.pillar_80, images.pillar_60, images.pillar_50], images.full_shadow, "a wall.", "Sterile, and devoid of contamination."],
     4: [images.soil, None, "soil, used for the farm.", "Surprisingly, it hasn't spilled onto the ground yet."],
     5: [[images.door, images.door1, images.door2, images.door3, images.door4], [images.door_shadow, images.door1_shadow, images.door3_shadow, images.door4_shadow], "a door.", "It opens and closes."],
     6: [images.pillar_low, images.half_shadow, "a shoft wall.", "Sterile and devoid of contamination."],
@@ -174,7 +176,7 @@ OBJECTS = {
     30: [images.science_lab_table, None, "a table of experiments.", "Martian soil and dust is on it."],
     31: [images.vending_machine, images.full_shadow, "a vending machine.", "Unfortunately, it needs a credit. And I used the last one."],
     33: [images.mission_control_desk, images.mission_control_desk_shadow, "computer station connected to Mission Control.", ""],
-    34: [images.whiteboard, images.full_shadow, "a whiteboard.", "It used to be used for brainstorming and planning."],
+    34: [images.duckwall, images.full_shadow, "a whiteboard.", "It used to be used for brainstorming and planning."],
     35: [images.window, images.full_shadow, "a window.", "It allows you to look out at space."],
     36: [images.window_short, images.full_shadow, "a window", "It allows you to look out at space."],
     37: [images.robot, images.robot_shadow, "a cleaning robot.", "It's turned off right now to conserve power."],
@@ -255,7 +257,7 @@ model = ChatOpenAI(
 
 def call_model(state: MessagesState):
     global text_hist
-    system_prompt = ("Your name is {ROBOT_NAME}, and you are a conselour, who gives emotional support to the user no matter what, and uses quick and concise replies to help your clients. The provided history includes a summary of the earler conversation.")
+    system_prompt = (f"Your name is {ROBOT_NAME}, and you are a conselour, who gives emotional support to the user no matter what, and uses quick and concise replies to help your clients. The provided history includes a summary of the earler conversation.")
     system_message = SystemMessage(content=system_prompt)
     message_history = state["messages"][:-1]  # exclude the most recent user input
     text_hist = message_history[:]
@@ -606,7 +608,7 @@ def display_robot_message_cont():
     future_robot_text = ''.join(split_text[1:])
     if len(split_text) > 0:
         robot_text = split_text[0]
-        clock.schedule(display_robot_message_cont, round(len(robot_text) * 0.075, 1))
+        clock.schedule(display_robot_message_cont, max(6.0, round(len(robot_text) * 0.8, 1)))
 
 def display_robot_message(text):
     global robot_speaking, robot_text, future_robot_text
@@ -616,8 +618,8 @@ def display_robot_message(text):
         not_yet_done = robot_text[201:]
         robot_text = robot_text[:201]
         future_robot_text = not_yet_done
-        clock.schedule(display_robot_message_cont, round(len(robot_text) * 0.075, 1))
-    clock.schedule_unique(end_robot_message, round(len(str(text))*0.075, 1))
+        clock.schedule(display_robot_message_cont, max(6.0, round(len(robot_text) * 0.8, 1)))
+    clock.schedule_unique(end_robot_message, max(6.0, round(len(text) * 0.8, 1)))
 
 def end_robot_message():
     global robot_speaking
@@ -689,7 +691,7 @@ def player_interact():
 def draw():
     mouse_x = pygame.mouse.get_pos()[0]
     mouse_y = pygame.mouse.get_pos()[1]
-    screen.blit(images.backdrop, (0 + min(x_shift, 0), 0 + min(y_shift, 0)))
+    screen.blit(images.backdrop, (top_left_x + ((-15 + x_shift) * TILE_SIZE), top_left_y + ((-15 + y_shift) * TILE_SIZE)))
     for y in range(ROOM_MAP_HEIGHT * ROOM_SIZE): 
         for x in range(ROOM_MAP_WIDTH * ROOM_SIZE):
             if room_map[y][x] in ITEMS_PLAYER_MAY_STAND_ON and not room_map[y][x] == 5:
@@ -707,7 +709,7 @@ def draw():
                 if item_here == 5:
                     image = OBJECTS[item_here][0][doors[2 * x * y - x**2]]
                 draw_image(image, y, x) 
-                if OBJECTS[item_here][1] is not None and room_map[y + 1][x] != 0: # If object has a shadow, and the tile below it is not space
+                if OBJECTS[item_here][1] is not None: # If object has a shadow
                     shadow_image = OBJECTS[item_here][1]
                     if item_here == 5:
                         shadow_image = OBJECTS[item_here][1][doors[2 * x * y - x**2]]
