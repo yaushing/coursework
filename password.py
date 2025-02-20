@@ -1,4 +1,0 @@
-organization="org-e7hiUn9Os0BwhTej1MCAjaaH"
-project="proj_yeJVgdnfhsLcXQUthTcSd9H9"
-api_key="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"
-langchainapi="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"
