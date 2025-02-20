@@ -63,6 +63,7 @@ player_text = ""
 doors = {}
 walls = {}
 paused = False
+exercise = False
 mute = False
 old_click = False
 mood_hist = {}
@@ -72,6 +73,16 @@ modal_text = ""
 delete_data = False
 future_robot_text = ""
 text_hist = []
+
+#exercises
+old_click2 = False
+exercise_menu = False
+breathing_menu = False
+breathing_menu_1 = False
+cur_pg = 0
+bodyscan_menu = False
+pause_music = True
+first_play = True
 
 ########################
 ### PLAYER VARIABLES ###
@@ -515,7 +526,8 @@ def pause_loop():
 ### CHATBOT ###
 ###############
 def on_key_up(key, mod):
-    global player_speaking, player_text, paused
+    global player_speaking, player_text, paused, exercise_menu, breathing_menu, cur_pg, bodyscan_menu, pause_music
+    print(key)
     key_id = str(key)[str(key).index(".") + 1:]
     if not paused and key_id == "ESCAPE":
         clock.unschedule(robot_interactions)
@@ -525,6 +537,29 @@ def on_key_up(key, mod):
         clock.schedule_interval(game_loop, 0.02)
         clock.schedule_interval(robot_interactions, 0.05)
         paused = False          
+    if not exercise_menu and not paused and key_id == "I":
+        clock.unschedule(robot_interactions)
+        clock.unschedule(game_loop)
+        exercise_menu = True
+    elif (not paused and exercise_menu and key_id == "I") or paused:
+        clock.schedule_interval(game_loop, 0.02)
+        clock.schedule_interval(robot_interactions, 0.05)
+        music.play(random.choice(MUSIC_CHOICES))
+        exercise_menu = breathing_menu = bodyscan_menu = False
+    
+    #exercises go to next step
+    if breathing_menu and key_id == "RIGHT":
+        if cur_pg < 5:
+            cur_pg += 1
+    elif breathing_menu and key_id == "LEFT":
+        if cur_pg > 0:
+            cur_pg -= 1
+    #pause body scan track
+    if bodyscan_menu and key_id == "SPACE" and pause_music == False:
+        pause_music = True
+    elif bodyscan_menu and key_id == "SPACE":
+        pause_music = False
+
     if not player_speaking and key_id == "C" and chatbot_on == True: # If the chatbot hasn't started, start the chatbot, pausing the gameloop and other interactions
         clock.unschedule(robot_interactions)
         clock.unschedule(game_loop)
@@ -741,6 +776,104 @@ def draw():
         screen.draw.text("You", (60, 670), color="black", fontname="biorhyme", width=780, lineheight=1)
         screen.draw.text(player_text, (60, 700), color="black", fontname="biorhyme", width=780, lineheight=1, fontsize = 15)
         screen.blit(images.player_text, (30, 600))
+
+    ###################################
+    #### STRESS MANAGEMENT EXERCISE ###
+    ###################################
+    if exercise_menu and not paused:
+        s = pygame.Surface((WIDTH-70, HEIGHT-70), pygame.SRCALPHA) # Creates a surface
+
+        colour = (255, 255, 255)
+        pygame.draw.rect(s, colour, pygame.Rect(0, 0, WIDTH-70, HEIGHT-70),  0, 50)
+        screen.blit(s, (35, 35))
+        screen.draw.text("MINDFULNESS EXERCISES", ((WIDTH/2-640/2), 140), color="dodgerblue4", width=640, fontname="biorhyme", lineheight=1, fontsize = 40)
+        screen.draw.text("press [I] to quit", ((WIDTH/2-160/2), 200), color="dimgrey", width=160, fontname="biorhyme", lineheight=1, fontsize = 20)
+        
+        mouse_x = pygame.mouse.get_pos()[0]
+        mouse_y = pygame.mouse.get_pos()[1]
+        
+        if 120 <= mouse_x <= 780 and 280 <= mouse_y <= 420: screen.blit(images.breathing_button_hover, (120, 280))
+        else: screen.blit(images.breathing_button, (120, 280))
+        
+        if 120 <= mouse_x <= 780 and 460 <= mouse_y <= 600: screen.blit(images.bodyscan_button_hover, (120, 460))
+        else: screen.blit(images.bodyscan_button, (120, 460))
+    
+    if breathing_menu and not paused:
+        s = pygame.Surface((WIDTH-70, HEIGHT-70), pygame.SRCALPHA) # Creates a surface over exercise menu
+
+        colour = (255, 255, 255)
+        pygame.draw.rect(s, colour, pygame.Rect(0, 0, WIDTH-70, HEIGHT-70),  0, 50)
+        screen.blit(s, (35, 35))
+        screen.draw.text("BREATHING EXERCISE", ((WIDTH/2-550/2), 140), color="dodgerblue4", width=550, fontname="biorhyme", lineheight=1, fontsize = 40)
+        screen.draw.text("press key [RIGHT] to go to the next stage.", ((WIDTH/2-485/2), 200), color="dimgrey", width=485, fontname="biorhyme", lineheight=1, fontsize = 20)
+        if cur_pg < 1:
+            screen.draw.text("Deep breathing helps to relieve symptoms of anxiety. ", ((WIDTH/2-485/2), 270), color="black", width=485, fontname="biorhyme", lineheight=1, fontsize = 20)
+            screen.draw.text("INSTRUCTIONS: Lean back or lie down in a comfortable position. Close your eyes if you’d like. When starting out, try placing a hand on your stomach. If you breathe deeply enough, you should feel it rise and fall with each breath. ", ((WIDTH/2-485/2), 340), color="black", width=485, fontname="biorhyme", lineheight=1, fontsize = 20)
+
+
+        mouse_x = pygame.mouse.get_pos()[0]
+        mouse_y = pygame.mouse.get_pos()[1]
+        
+        #back button hover
+        if 90 <= mouse_x <= 200 and 80 <= mouse_y <= 115: screen.blit(images.exercise_back_hover, (90,80))
+        else: screen.blit(images.exercise_back, (90,80))
+    
+        if cur_pg >= 1:
+            screen.draw.text("Step 1 of 4", (170, 260), color="black", width=550, fontname="biorhyme", lineheight=1, fontsize = 25)
+            screen.draw.text("Inhale. Slowly breathe in through your nose for 4 seconds.", (170, 290), color="dimgrey", width=550, fontname="biorhyme", lineheight=1, fontsize = 17)
+        if cur_pg >= 2:
+            screen.draw.text("Step 2 of 4", (170, 310), color="black", width=550, fontname="biorhyme", lineheight=1, fontsize = 25)
+            screen.draw.text("Pause. Hold your breath for 4 seconds.", (170, 340), color="dimgrey", width=550, fontname="biorhyme", lineheight=1, fontsize = 17)
+        if cur_pg >= 3:
+            screen.draw.text("Step 3 of 4", (170, 359), color="black", width=550, fontname="biorhyme", lineheight=1, fontsize = 25)
+            screen.draw.text("Exhale. Gently release your breath through your mouth for 6 seconds.", (170, 388), color="dimgrey", width=550, fontname="biorhyme", lineheight=1, fontsize = 17)
+            screen.draw.text("Tip: Purse your lips as if blowing through a straw to slow the exhale.", (170, 446), color="dimgrey", width=550, fontname="biorhyme", lineheight=1, fontsize = 17)
+        if cur_pg >= 4:
+            screen.draw.text("Step 4 of 4", (170, 505), color="black", width=550, fontname="biorhyme", lineheight=1, fontsize = 25)
+            screen.draw.text("Repeat. Continue for at least 2 minutes, ideally 5 to 10 minutes.", (170, 535), color="dimgrey", width=550, fontname="biorhyme", lineheight=1, fontsize = 17)
+            screen.draw.text("You'll likely feel calmer after this exercise, but if not, don't worry—it takes practice.", ((WIDTH/2-485/2), 630), color="black", width=485, fontname="biorhyme", lineheight=1, fontsize = 20)
+
+    if bodyscan_menu and not paused:
+        global first_play
+        s = pygame.Surface((WIDTH-70, HEIGHT-70), pygame.SRCALPHA) # Creates a surface over exercise menu
+
+        colour = (255, 255, 255)
+        pygame.draw.rect(s, colour, pygame.Rect(0, 0, WIDTH-70, HEIGHT-70),  0, 50)
+        screen.blit(s, (35, 35))
+        screen.draw.text("BODY SCAN EXERCISE", ((WIDTH/2-550/2), 140), color="dodgerblue4", width=550, fontname="biorhyme", lineheight=1, fontsize = 40)
+        screen.draw.text("press key [SPACE] to start, pause and resume the audio track.", ((WIDTH/2-485/2), 200), color="dimgrey", width=485, fontname="biorhyme", lineheight=1, fontsize = 20)
+        screen.draw.text("For this exercise, you will focus on the physical sensations in your body. Simply observe these sensations through listening to the audio track.", ((WIDTH/2-485/2), 275), color="black", width=485, fontname="biorhyme", lineheight=1, fontsize = 20)
+        
+        mouse_x = pygame.mouse.get_pos()[0]
+        mouse_y = pygame.mouse.get_pos()[1]
+        
+        #back button hover
+        if 90 <= mouse_x <= 200 and 80 <= mouse_y <= 115: screen.blit(images.exercise_back_hover, (90,80))
+        else: screen.blit(images.exercise_back, (90,80))
+        
+        #print(pause_music)
+        if not music.is_playing("body_scan_audio") and first_play:
+            #print(">>>>>>")
+            music.play_once("body_scan_audio")
+            first_play = False
+        if pause_music:
+            music.pause()
+        else:
+            music.unpause()
+        #print(music.is_playing('body_scan_audio'))
+        #print(music.get_pos())
+        if music.is_playing('body_scan_audio'):
+            screen.blit(images.audio_playing, (350, 450))
+        else:
+            screen.blit(images.audio_paused, (350, 450))
+        cur_time = music.get_pos()/143000 * 660
+        screen.draw.line((120,560), (780,560), (128, 128, 128))
+        screen.draw.line((120,560), (120+cur_time,560), (0, 0, 0)) 
+        screen.draw.line((120,561), (780,561), (128, 128, 128)) #for more thickness
+        screen.draw.line((120,561), (120+cur_time,561), (0, 0, 0)) 
+
+    
+        
     if paused:
         s = pygame.Surface((WIDTH, HEIGHT)) # Creates a surface the height and width of the window
         s.set_alpha(128) # To create a semi-opaque overlay
@@ -771,6 +904,31 @@ def draw():
         else: screen.blit(images.modalcancel, (465, 520)) 
     if displaying_chart:
         screen.blit(images.moodchart, (110, 190))
+
+    
+#################
+# EXERCISE MENU #
+#################
+
+def exercise_loop():
+    global old_click2, exercise_menu, breathing_menu, bodyscan_menu, paused, cur_pg, first_play
+    clicked = any(pygame.mouse.get_pressed())
+    if clicked and not old_click2:
+        mouse_x = pygame.mouse.get_pos()[0]
+        mouse_y = pygame.mouse.get_pos()[1]
+        #print(pygame.mouse.get_pressed())
+        print(f"Clicked at position {pygame.mouse.get_pos()}")
+    
+        if exercise_menu and (120 <= mouse_x <= 780 and 280 <= mouse_y <= 420) and not breathing_menu and not bodyscan_menu: # breathing menu
+            breathing_menu = True
+        if exercise_menu and (120 <= mouse_x <= 780 and 460 <= mouse_y <= 600) and not breathing_menu and not bodyscan_menu: # body scan menu
+            bodyscan_menu = True
+            first_play = True
+        if exercise_menu and (90 <= mouse_x <= 200 and 80 <= mouse_y <= 115): #back button
+            breathing_menu = bodyscan_menu = False
+            cur_pg = 0
+    old_click2 = clicked
+
 
 def display_message(text):
     global robot_speaking, robot_text
@@ -823,7 +981,7 @@ def game_loop():
             player_direction = "left"
             player_frame = 1
             update_robot_pos(old_player_x, old_player_y)
-        elif keyboard.right or keyboard.d: #elif stops player making diagonal movements
+        elif not exercise_menu and (keyboard.right or keyboard.d): #elif stops player making diagonal movements
             from_player_x = player_x
             from_player_y = player_y
             player_x += 1
@@ -913,6 +1071,8 @@ def display_help_message():
     else:
         display_message(f"This is {ROOMS[current_room][6]} {ROOMS[current_room][7]}")
 
+
+
 #############
 ### START ###
 #############
@@ -940,5 +1100,6 @@ clock.schedule_interval(game_loop, 0.02)
 clock.schedule_interval(robot_interactions, 0.05)
 clock.schedule_interval(adjust_wall_transparency, 0.05)
 clock.schedule_interval(open_doors, 0.05)
+clock.schedule_interval(exercise_loop, 0.05)
 clock.schedule_interval(pause_loop, 0.05)
 pgzrun.go()
