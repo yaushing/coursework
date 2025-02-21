@@ -28,4 +28,4 @@ python3
 
 ```
 
-4c. Run step 4 again. 5. Run game.py from the root directory of the project
+4c. Run step 4 again. 5. Add password.py into the root directory of the project 6. Run game.py from the root directory of the project
