@@ -72,7 +72,6 @@ ROOM_MAP_WIDTH = 3  # Number of rooms in the map (left to right)
 ROOM_MAP_HEIGHT = 3  # Number of rooms in the map (top to bottom)
 SHIFTED = list(")!@#$%^&*(")  # Used for keyboard typing
 ROBOT_NAME = "Vimal"
-SHIP_NAME = "Jolene"
 MUSIC_CHOICES = ["kisstherain", "merrygoroundoflife"]
 LANGCHAIN_TRACING_V2 = True
 LANGCHAIN_ENDPOINT = "https://api.smith.langchain.com"
@@ -506,7 +505,16 @@ OBJECTS = {
 #############
 ROOMS = [
     # [width, height, left exit, right exit, top exit, bottom exit, title, description.]
-    [14, 10, False, False, False, True, "BETA", "BETABETA"],
+    [
+        14,
+        10,
+        False,
+        False,
+        False,
+        True,
+        "A wide, empty room",
+        "You can decorate this however you like!",
+    ],
     [
         0,
         0,
@@ -524,8 +532,8 @@ ROOMS = [
         False,
         False,
         True,
-        "mission control.",
-        "Back when comms worked, we could talk to Earth from here...",
+        "The toilet",
+        "The only one.",
     ],
     [4, 4, False, True, True, True, "an access corridor.", "How did you get here?"],
     [
@@ -535,7 +543,7 @@ ROOMS = [
         True,
         False,
         False,
-        "the one and only lounging area in the entire spaceship.",
+        "the one and only lounging area in the entire cabin.",
         "It's pretty nice!",
     ],
     [4, 4, True, False, True, True, "an access corridor.", "How did you get here?"],
@@ -547,7 +555,7 @@ ROOMS = [
         True,
         False,
         "the dorm.",
-        "All the astronauts used to stay here at night.",
+        "It's a dorm.",
     ],
     [
         0,
@@ -1110,7 +1118,7 @@ def on_key_up(key, mod):
     except:
         key_id = KEY_IDS[key][str(KEY_IDS[key]).index(".") + 1 :]
     print(key_id)
-    if not paused and key_id == "ESCAPE":
+    if not paused and key_id == "ESCAPE" and not player_speaking:
         clock.unschedule(robot_interactions)
         clock.unschedule(game_loop)
         paused = True
@@ -1118,11 +1126,11 @@ def on_key_up(key, mod):
         clock.schedule_interval(game_loop, 0.02)
         clock.schedule_interval(robot_interactions, 0.05)
         paused = False
-    if not exercise_menu and not paused and key_id == "I":
+    if not exercise_menu and not paused and key_id == "I" and not player_speaking:
         clock.unschedule(robot_interactions)
         clock.unschedule(game_loop)
         exercise_menu = True
-    elif (not paused and exercise_menu and key_id == "I") or paused:
+    elif exercise_menu and key_id == "I":
         clock.schedule_interval(game_loop, 0.02)
         clock.schedule_interval(robot_interactions, 0.05)
         music.play(random.choice(MUSIC_CHOICES))
@@ -2024,7 +2032,7 @@ if not mute:
 if not started:
     clock.unschedule(robot_interactions)
     display_message(
-        f"Hi! I'm {ROBOT_NAME}, your AI companion (and last functioning robot) aboard the {SHIP_NAME}. If you need any help, just face what you want to find out more about and press 'T'. If you want to chat, just press 'C'. Now, use WASD or the arrow keys to move! For exercises (breathing and body scan), press 'I'!"
+        f"Hi! I'm {ROBOT_NAME}, your AI companion (and last functioning robot). If you need any help, just face what you want to find out more about and press 'T'. If you want to chat, just press 'C'. For exercises (breathing and body scan), press 'I'! While chatting, type :q to exit. Now, use WASD to move!"
     )
     clock.schedule_unique(end_message, 20.0)
     started = True
