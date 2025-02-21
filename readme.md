@@ -11,4 +11,5 @@ python3
 >>> import nltk
 >>> nltk.download()
 ```
+4a. test
 7. Run game.py from the root directory of the project
