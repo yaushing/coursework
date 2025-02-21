@@ -52,11 +52,11 @@ In place of the 3.9, put the version of Python that you used if it's an differen
 
 ## Screenshots
 
-![zero](readmeimages/00)
-![one](readmeimages/01)
-![two](readmeimages/02)
-![three](readmeimages/03)
-![four](readmeimages/04)
+![zero](readmeimages/00.png)
+![one](readmeimages/01.png)
+![two](readmeimages/02.png)
+![three](readmeimages/03.png)
+![four](readmeimages/04.png)
 
 
 
