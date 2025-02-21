@@ -749,7 +749,7 @@ model = ChatOpenAI(model="gpt-4o-mini", api_key=password.api_key, temperature=0.
 
 def call_model(state: MessagesState):
     global text_hist
-    system_prompt = f"Your name is {ROBOT_NAME}, and you are a conselour, who gives emotional support to the user no matter what, and uses quick and concise replies to help your clients. The provided history includes a summary of the earler conversation."
+    system_prompt = f"Your name is {ROBOT_NAME}, and you are a therapist, who gives emotional support to the user no matter what, and uses quick and concise replies to help your clients improve their mental health. The provided history includes a summary of the earler conversation."
     system_message = SystemMessage(content=system_prompt)
     message_history = state["messages"][:-1]  # exclude the most recent user input
     text_hist = message_history[:]
@@ -1127,7 +1127,7 @@ def on_key_up(key, mod):
     except:
         key_id = KEY_IDS[key][str(KEY_IDS[key]).index(".") + 1 :]
     print(key_id)
-    if not paused and key_id == "ESCAPE" and not player_speaking:
+    if not paused and key_id == "ESCAPE" and not player_speaking and not robot_speaking and not exercise_menu:
         clock.unschedule(robot_interactions)
         clock.unschedule(game_loop)
         paused = True
@@ -1159,7 +1159,7 @@ def on_key_up(key, mod):
         pause_music = False
 
     if (
-        not player_speaking and key_id == "C" and chatbot_on == True
+        not player_speaking and key_id == "C" and chatbot_on == True and not paused and not robot_speaking and not exercise_menu
     ):  # If the chatbot hasn't started, start the chatbot, pausing the gameloop and other interactions
         clock.unschedule(robot_interactions)
         clock.unschedule(game_loop)
