@@ -1085,7 +1085,7 @@ if not mute:
     music.play(random.choice(MUSIC_CHOICES))
 if not started:
     clock.unschedule(robot_interactions)
-    display_message(f"Hi! I'm {ROBOT_NAME}, your AI companion (and last functioning robot) aboard the {SHIP_NAME}. If you need any help, just face what you want to find out more about and press 'T'. If you want to chat, just press 'C'. Now, use WASD or the arrow keys to move!")
+    display_message(f"Hi! I'm {ROBOT_NAME}, your AI companion (and last functioning robot) aboard the {SHIP_NAME}. If you need any help, just face what you want to find out more about and press 'T'. If you want to chat, just press 'C'. Now, use WASD or the arrow keys to move! For exercises (breathing and body scan), press 'I'!")
     clock.schedule_unique(end_message, 20.0)
     started = True
 room_map = generate_rooms(ROOMS)
