@@ -25,7 +25,9 @@ python3
 4b. Run the following commands:
 
 ```
-
+/Applications/Python 3.9/Install Certificates.command
 ```
+
+In place of the 3.9, put the version of Python that you used if it's an earlier / later one.
 
 4c. Run step 4 again. 5. Add password.py into the root directory of the project 6. Run game.py from the root directory of the project
