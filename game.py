@@ -1135,7 +1135,7 @@ def on_key_up(key, mod):
         clock.schedule_interval(game_loop, 0.02)
         clock.schedule_interval(robot_interactions, 0.05)
         paused = False
-    if not exercise_menu and not paused and key_id == "I" and not player_speaking:
+    if not exercise_menu and not paused and key_id == "I" and not player_speaking and not robot_speaking:
         clock.unschedule(robot_interactions)
         clock.unschedule(game_loop)
         exercise_menu = True
@@ -1245,7 +1245,7 @@ def end_player_message():  # When the player is done typing, close the popup. If
         clock.schedule_interval(robot_interactions, 0.05)
         clock.schedule_interval(game_loop, 0.02)
         pass
-    elif player_text == "/p_debug":
+    elif player_text == ":mood":
         mood_to_disp = [
             sum(mood_hist[i]) / (len(mood_hist[i])) for i in mood_hist.keys()
         ]
@@ -1263,6 +1263,7 @@ def end_player_message():  # When the player is done typing, close the popup. If
             label="Baseline",
         )
         plt.savefig("images/moodchart.png")
+        show_mood_chart()
     else:
         print(get_sentiment(player_text))
         today_date = np.datetime64(date.today())
@@ -1289,8 +1290,10 @@ def display_robot_message_cont():
     if len(split_text) > 0:
         robot_text = split_text[0]
         clock.schedule(
-            display_robot_message_cont, max(6.0, round(len(robot_text) * 0.8, 1))
+            display_robot_message_cont, max(6.0, round(len(robot_text) * 0.15, 1))
         )
+    else:
+        clock.schedule_unique(end_robot_message, max(6.0, round(len(robot_text) * 0.15, 1)))
 
 
 def display_robot_message(text):
@@ -1302,9 +1305,10 @@ def display_robot_message(text):
         robot_text = robot_text[:201]
         future_robot_text = not_yet_done
         clock.schedule(
-            display_robot_message_cont, max(6.0, round(len(robot_text) * 0.8, 1))
+            display_robot_message_cont, max(6.0, round(len(robot_text) * 0.15, 1))
         )
-    clock.schedule_unique(end_robot_message, max(6.0, round(len(text) * 0.8, 1)))
+    print(max(6.0, round(len(text) * 0.15, 1)))
+    clock.schedule_unique(end_robot_message, max(6.0, round(len(robot_text) * 0.15, 1)))
 
 
 def end_robot_message():
@@ -1342,9 +1346,17 @@ def get_sentiment(text):
     scores = SentimentIntensityAnalyzer().polarity_scores(text)
     return scores["compound"]
 
+def show_mood_chart():
+    global displaying_chart
+    displaying_chart = True
+    clock.schedule_unique(hide_mood_chart, 10.0)
+
+def hide_mood_chart():
+    global displaying_chart
+    displaying_chart = False
+    end_robot_message()
 
 def player_interact():
-    global displaying_chart
     if player_direction == "right":
         facing = room_map[player_y][player_x + 1]
         checked = player_y, player_x + 1
@@ -1384,7 +1396,7 @@ def player_interact():
             label="Baseline",
         )
         plt.savefig("images/moodchart.png")
-        displaying_chart = True
+        show_mood_chart()
     else:
         pass
 
@@ -2041,7 +2053,7 @@ if not mute:
 if not started:
     clock.unschedule(robot_interactions)
     display_message(
-        f"Hi! I'm {ROBOT_NAME}, your AI companion. If you need any help, just face what you want to find out more about and press 'T'. If you want to chat, just press 'C'. For exercises (breathing and body scan), press 'I'! While chatting, type :q to exit. Now, use WASD to move!"
+        f"Hi! I'm {ROBOT_NAME}, your AI companion. If you need any help, just face what you want to know more about and press 'T'. If you want to chat, just press 'C'. For breathing exercisies, press 'I'! While chatting, type :q to exi and :mood to show the mood chart. Now, use WASD to move!"
     )
     clock.schedule_unique(end_message, 20.0)
     started = True
