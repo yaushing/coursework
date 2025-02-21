@@ -2041,7 +2041,7 @@ if not mute:
 if not started:
     clock.unschedule(robot_interactions)
     display_message(
-        f"Hi! I'm {ROBOT_NAME}, your AI companion (and last functioning robot). If you need any help, just face what you want to find out more about and press 'T'. If you want to chat, just press 'C'. For exercises (breathing and body scan), press 'I'! While chatting, type :q to exit. Now, use WASD to move!"
+        f"Hi! I'm {ROBOT_NAME}, your AI companion. If you need any help, just face what you want to find out more about and press 'T'. If you want to chat, just press 'C'. For exercises (breathing and body scan), press 'I'! While chatting, type :q to exit. Now, use WASD to move!"
     )
     clock.schedule_unique(end_message, 20.0)
     started = True
