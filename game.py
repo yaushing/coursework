@@ -131,8 +131,17 @@ KEY_IDS = {
     121: "keys.Y",
     122: "keys.Z",
     1073741881: "keys.CAPSLOCK",
+    1073741903: "keys.RIGHT",
+    1073741904: "keys.LEFT",
+    1073741905: "keys.DOWN",
+    1073741906: "keys.UP",
+    1073742048: "keys.LCTRL",
     1073742049: "keys.LSHIFT",
+    1073742050: "keys.LALT",
+    1073742051: "keys.LGUI",
     1073742053: "keys.RSHIFT",
+    1073742054: "keys.RALT",
+    1073742055: "keys.RGUI",
 }
 
 #################
