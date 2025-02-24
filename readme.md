@@ -48,7 +48,7 @@ python3 game.py
 ## Issues
 - There is rare bug where the game quits with the following in terminal:
 ```zsh
-zsh: trace trap. 
+zsh: trace trap: ...
 ```
 Unfortunately there is no way to fix this as this is a problem with UNIX and the python interpreter and not the code itself. Instead, just relaunch game.
 
