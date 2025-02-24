@@ -1,10 +1,8 @@
 
 # 2024-2025 Sec 3 - 4 Coursework, Team MST6 (Nerd)
 
-An AI Therapist made for teenagers struggle with managing their stress and mental health, by teenagers struggling to manage their stress and mental health.\
+Meet AMY: An AI Therapist made for teenagers struggle with managing their stress and mental health, by teenagers struggling to manage their stress and mental health.\
 Our app aims to help teenagers cope with stress and handle their mental health.  Teenagers will benefit from the solution. They face a multitude of problems, such as stress due to academics, relationship issues, and stress due to the forming of their identities.
-
-
 
 ## Installation
 
@@ -77,4 +75,3 @@ In place of the 3.9, put the version of Python that you used if it's an differen
 Here are some related projects
 
 [Mentalstop](https://github.com/SeansC12/mentalstop)
-
