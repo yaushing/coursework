@@ -32,7 +32,10 @@ In place of the 3.9, put the version of Python that you used if it's an differen
 4c. Run step 4 again.
 
 5. Add password.py into the root directory of the project\
-6. Run game.py from the root directory of the project
+6. Run game.py from the root directory of the project with 
+```zsh
+python3 game.py
+```
 
 ## Features
 
@@ -42,6 +45,12 @@ In place of the 3.9, put the version of Python that you used if it's an differen
 - Mood charts
 - AI Therapist chatbot
 
+## Issues
+- There is rare bug where the game quits with the following in terminal:
+```zsh
+zsh: trace trap. 
+```
+Unfortunately there is no way to fix this as this is a problem with UNIX and the python interpreter and not the code itself. Instead, just relaunch game.
 
 ## Demo
 
